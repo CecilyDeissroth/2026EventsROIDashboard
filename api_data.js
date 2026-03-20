@@ -1,19 +1,14 @@
-// api/data.js — Vercel Serverless Function (free Hobby plan compatible)
-// Uses JSONBin.io as free storage (no credit card needed).
-// Clients poll /api/data every 5s for near-real-time multi-user sync.
+// api/data.js — Vercel Serverless Function
+// Uses JSONBin.io as free storage.
 //
-// Environment variables — set these in your Vercel project dashboard:
-//
-//   JSONBIN_API_KEY   Your JSONBin.io master key (from jsonbin.io/app/api-keys)
-//   JSONBIN_BIN_ID    Created automatically on first POST if left blank,
-//                     or paste an existing bin ID here
-//   API_SECRET        Any string you choose — all team members enter this once
-//                     in the dashboard settings. Leave blank to disable auth.
+// Environment variables in Vercel dashboard:
+//   JSONBIN_API_KEY   — your JSONBin.io master key (jsonbin.io → API Keys)
+//   JSONBIN_BIN_ID    — created automatically on first save, or paste existing ID
+//   API_SECRET        — must match the secret hardcoded in index.html (2026events)
 
 const JSONBIN_KEY  = process.env.JSONBIN_API_KEY;
 const JSONBIN_BIN  = process.env.JSONBIN_BIN_ID;
 const API_SECRET   = process.env.API_SECRET;
-
 const JSONBIN_BASE = 'https://api.jsonbin.io/v3';
 
 function setCORS(res) {
@@ -37,7 +32,6 @@ async function binRead() {
 }
 
 async function binWrite(data) {
-  // Update existing bin
   if (JSONBIN_BIN) {
     const r = await fetch(`${JSONBIN_BASE}/b/${JSONBIN_BIN}`, {
       method: 'PUT',
@@ -50,7 +44,6 @@ async function binWrite(data) {
     if (!r.ok) throw new Error(`JSONBin write failed: ${r.status}`);
     return { binId: JSONBIN_BIN };
   }
-
   // Create new bin on first save
   const r = await fetch(`${JSONBIN_BASE}/b`, {
     method: 'POST',
@@ -64,11 +57,10 @@ async function binWrite(data) {
   });
   if (!r.ok) throw new Error(`JSONBin create failed: ${r.status}`);
   const j = await r.json();
-  const newId = j.metadata?.id;
-  return { binId: newId, created: true };
+  return { binId: j.metadata?.id, created: true };
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   setCORS(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (!isAuthed(req)) return res.status(401).json({ error: 'Unauthorized' });
@@ -79,7 +71,7 @@ export default async function handler(req, res) {
     });
   }
 
-  // ── GET: load current data ─────────────────────────────────────────────────
+  // GET — load data
   if (req.method === 'GET') {
     try {
       const record = await binRead();
@@ -90,7 +82,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // ── POST: save new data ────────────────────────────────────────────────────
+  // POST — save data
   if (req.method === 'POST') {
     try {
       const { pool } = req.body;
@@ -103,12 +95,14 @@ export default async function handler(req, res) {
       });
       const data = { pool, savedAt, updatedAt: Date.now() };
       const result = await binWrite(data);
-
       return res.status(200).json({
         ok: true,
         savedAt,
         updatedAt: data.updatedAt,
-        ...(result.created ? { binId: result.binId, note: `Add JSONBIN_BIN_ID=${result.binId} to Vercel env vars` } : {})
+        ...(result.created ? {
+          binId: result.binId,
+          note: `IMPORTANT: Add JSONBIN_BIN_ID=${result.binId} to Vercel env vars to persist this bin`
+        } : {})
       });
     } catch(e) {
       return res.status(500).json({ error: e.message });
@@ -116,4 +110,4 @@ export default async function handler(req, res) {
   }
 
   return res.status(405).json({ error: 'Method not allowed' });
-}
+};
