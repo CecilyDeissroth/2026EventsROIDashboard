@@ -3,12 +3,7 @@
   "framework": null,
   "buildCommand": null,
   "outputDirectory": ".",
-  "builds": [
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "api/data.js", "use": "@vercel/node" }
-  ],
-  "routes": [
-    { "src": "/api/data", "dest": "/api/data.js" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/api/data", "destination": "/api/data.js" }
   ]
 }
