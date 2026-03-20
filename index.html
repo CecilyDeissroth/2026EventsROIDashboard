@@ -1,0 +1,2428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="description" content="Event ROI Dashboard 2026">
+<title>Event ROI Dashboard 2026</title>
+<style>
+html, body { overflow-x: hidden; }
+  /* iframe compatibility: fill the iframe frame and allow scrolling */
+  html, body { height:100%; margin:0; padding:0; overflow-x:hidden; }
+  #app { position:relative; min-height:100%; }
+</style>
+
+<script>
+/* ── MiniCharts: self-contained canvas renderer, no CDN ── */
+const MiniCharts = {
+  _instances: new Map(),
+  _font: "'Aptos','Calibri',sans-serif",
+  _muted: '#366B98',
+  _text: '#073350',
+
+  create(canvas, config) {
+    if (!canvas || !canvas.getContext) return { destroy(){}, update(){} };
+    if (this._instances.has(canvas)) this._instances.get(canvas).destroy();
+    const inst = this._build(canvas, config);
+    this._instances.set(canvas, inst);
+    return inst;
+  },
+
+  _build(canvas, config) {
+    const self = MiniCharts;
+    let animFrame = null;
+    let tooltip = null;
+    let hoverState = null;
+    const geo = { bars:[], slices:[], points:[], hbars:[] };
+
+    const draw = (hov) => {
+      const w = canvas.offsetWidth || canvas.parentElement?.offsetWidth || 400;
+      const h = canvas.offsetHeight || canvas.parentElement?.offsetHeight || 260;
+      canvas.width  = w * (window.devicePixelRatio || 1);
+      canvas.height = h * (window.devicePixelRatio || 1);
+      canvas.style.width  = w + 'px';
+      canvas.style.height = h + 'px';
+      if (canvas.width < 10 || canvas.height < 10) return;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+      ctx.clearRect(0, 0, w, h);
+      geo.bars=[]; geo.slices=[]; geo.points=[]; geo.hbars=[];
+      const { type, data, options } = config;
+      if      (type === 'doughnut')                      self._drawDoughnut(ctx, w, h, data, options, geo, hov);
+      else if (type === 'bar' && options?.indexAxis==='y') self._drawHBar(ctx, w, h, data, options, geo, hov);
+      else if (type === 'bar')                           self._drawBar(ctx, w, h, data, options, config._stacked, geo, hov);
+      else if (type === 'line')                          self._drawLine(ctx, w, h, data, options, geo, hov);
+    };
+
+    animFrame = requestAnimationFrame ? requestAnimationFrame(()=>draw(null)) : setTimeout(()=>draw(null), 0);
+
+    const getTooltip = () => {
+      if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.style.cssText = 'position:absolute;z-index:9999;pointer-events:none;background:rgba(7,51,80,.93);color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;font-family:\'Aptos\',\'Calibri\',sans-serif;line-height:1.55;box-shadow:0 4px 20px rgba(0,0,0,.3);transition:opacity .1s;opacity:0;max-width:240px';
+        document.getElementById('app').appendChild(tooltip);
+        document.body.appendChild(tooltip);
+      }
+      return tooltip;
+    };
+
+    const showTooltip = (cx, cy, title, lines) => {
+      const tip = getTooltip();
+      tip.innerHTML = (title ? `<div style="font-weight:700;font-size:10px;letter-spacing:.4px;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:4px">${title}</div>` : '') +
+        lines.map(l=>`<div style="display:flex;align-items:center;gap:4px">${l}</div>`).join('');
+      tip.style.opacity = '1';
+      /* Absolute positioning relative to #app container */
+      const app = document.getElementById('app');
+      const ar = app ? app.getBoundingClientRect() : {left:0,top:0};
+      const scrollY = app ? app.scrollTop : (window.scrollY||0);
+      const W2 = app ? ar.width : window.innerWidth;
+      let lx = cx - ar.left + 14, ly = cy - ar.top + scrollY - 10;
+      if (lx + 240 > W2 - 8) lx = cx - ar.left - 250;
+      if (lx < 4) lx = 4;
+      tip.style.left = lx + 'px';
+      tip.style.top  = Math.max(4, ly) + 'px';
+    };
+
+    const hideTooltip = () => {
+      if (tooltip) tooltip.style.opacity = '0';
+      hoverState = null;
+    };
+
+    const buildLines = (dsIdx, ptIdx) => {
+      const { data, options, type } = config;
+      const cbk = options?.plugins?.tooltip?.callbacks;
+      const datasets = data.datasets || [];
+      const dot = (c) => `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${c};flex-shrink:0"></span>`;
+
+      if (type === 'doughnut') {
+        const ds = datasets[0]||{};
+        const lbl = (data.labels||[])[ptIdx]||'';
+        const val = (ds.data||[])[ptIdx];
+        const ctx2 = {label:lbl,parsed:val,dataIndex:ptIdx,dataset:ds,datasetIndex:0};
+        const txt = cbk?.label ? cbk.label(ctx2) : `${lbl}: ${val}`;
+        const c = (ds.backgroundColor||[])[ptIdx]||'#ccc';
+        return [dot(c)+' '+txt];
+      }
+      if (type === 'bar' && options?.indexAxis==='y') {
+        const ds = datasets[dsIdx]||{};
+        const lbl = (data.labels||[])[ptIdx]||'';
+        const val = (ds.data||[])[ptIdx];
+        const ctx2 = {label:lbl,parsed:{x:val,y:val},dataIndex:ptIdx,dataset:ds,datasetIndex:dsIdx};
+        const txt = cbk?.label ? cbk.label(ctx2) : self._fmtNum(val||0);
+        const c = Array.isArray(ds.backgroundColor)?ds.backgroundColor[ptIdx]:(ds.backgroundColor||'#ccc');
+        return [dot(c)+' '+txt];
+      }
+      /* bar / line — all datasets at this x */
+      return datasets.map((ds,di)=>{
+        const val = (ds.data||[])[ptIdx];
+        if (val==null) return null;
+        const ctx2 = {label:ds.label||'',parsed:{x:ptIdx,y:val},dataIndex:ptIdx,dataset:ds,datasetIndex:di};
+        const txt = cbk?.label ? cbk.label(ctx2) : `${ds.label||''}: ${self._fmtNum(val)}`;
+        const c = Array.isArray(ds.backgroundColor)?ds.backgroundColor[ptIdx]:(ds.borderColor||ds.backgroundColor||'#ccc');
+        return dot(c)+' '+txt;
+      }).filter(Boolean);
+    };
+
+    const onMove = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      const { type, data, options } = config;
+      const labels = data.labels||[];
+      let hit = null;
+
+      if (type === 'doughnut') {
+        for (const s of geo.slices) {
+          const dx=mx-s.cx, dy=my-s.cy, dist=Math.sqrt(dx*dx+dy*dy);
+          if (dist>=s.inner && dist<=s.r) {
+            let a = Math.atan2(dy,dx); if(a<0) a+=Math.PI*2;
+            let a0=s.a0, a1=s.a1;
+            if(a0<0) a0+=Math.PI*2; if(a1<0) a1+=Math.PI*2;
+            const span = s.a1-s.a0;
+            const inSlice = span>=0 ? (a>=a0&&a<=a1) : false;
+            /* simpler: check angle falls within [a0,a1] mod 2pi */
+            const a0n = ((s.a0%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+            const a1n = ((s.a1%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+            const an  = a;
+            const inside = a1n>a0n ? (an>=a0n&&an<=a1n) : (an>=a0n||an<=a1n);
+            if (inside) { hit={dsIdx:0,ptIdx:s.idx}; break; }
+          }
+        }
+      } else if (type==='bar' && options?.indexAxis==='y') {
+        for (const b of geo.hbars) {
+          if (mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h) { hit={dsIdx:b.dsIdx,ptIdx:b.idx}; break; }
+        }
+      } else if (geo.bars.length) {
+        /* find x-column under cursor */
+        const allCols = [...new Set(geo.bars.map(b=>b.idx))].sort((a,b2)=>a-b2);
+        let bestCol=null, bestDist=Infinity;
+        for (const col of allCols) {
+          const barsForCol = geo.bars.filter(b=>b.idx===col);
+          const minX = Math.min(...barsForCol.map(b=>b.x));
+          const maxX = Math.max(...barsForCol.map(b=>b.x+b.w));
+          const cx2 = (minX+maxX)/2;
+          if (mx>=minX-4 && mx<=maxX+4 && Math.abs(mx-cx2)<bestDist) {
+            bestDist=Math.abs(mx-cx2); bestCol=col;
+          }
+        }
+        if (bestCol!=null) hit={dsIdx:0,ptIdx:bestCol};
+      } else if (geo.points.length) {
+        let best=null, bd=20;
+        for (const p of geo.points) {
+          const d=Math.sqrt((mx-p.x)**2+(my-p.y)**2);
+          if (d<bd){bd=d;best=p;}
+        }
+        if (best) hit={dsIdx:best.dsIdx,ptIdx:best.idx};
+        else {
+          const pp=self._p(options?.plugins?.legend?.display!==false);
+          const n=labels.length;
+          if(n>1){const colW=(canvas.offsetWidth-pp.l-pp.r)/(n-1);const col=Math.round((mx-pp.l)/colW);if(col>=0&&col<n)hit={dsIdx:0,ptIdx:col};}
+        }
+      }
+
+      if (hit) {
+        const title = labels[hit.ptIdx]||'';
+        const lines = buildLines(hit.dsIdx, hit.ptIdx);
+        if (lines.length) {
+          showTooltip(e.clientX, e.clientY, title, lines);
+          if (!hoverState||hoverState.ptIdx!==hit.ptIdx||hoverState.dsIdx!==hit.dsIdx) { hoverState=hit; draw(hit); }
+          return;
+        }
+      }
+      if (hoverState) { hideTooltip(); draw(null); }
+    };
+
+    const onLeave = () => { hideTooltip(); draw(null); };
+    canvas.addEventListener('mousemove', onMove);
+    canvas.addEventListener('mouseleave', onLeave);
+    canvas.style.cursor = 'crosshair';
+
+    return {
+      destroy() {
+        try{cancelAnimationFrame(animFrame);}catch(e){clearTimeout(animFrame);}
+        canvas.removeEventListener('mousemove', onMove);
+        canvas.removeEventListener('mouseleave', onLeave);
+        if(tooltip&&tooltip.parentNode) tooltip.parentNode.removeChild(tooltip);
+        tooltip=null;
+      },
+      update() { draw(hoverState); },
+      data: config.data
+    };
+  },
+
+  /* ── padding: just enough for axes, nothing wasted ── */
+  _p(hasLegend) { return { t: hasLegend ? 24 : 8, r: 8, b: 32, l: 68 }; },
+
+  _drawBar(ctx, W, H, data, options, stacked, geo, hov) {
+    const hasLeg = options?.plugins?.legend?.display !== false && (data.datasets||[]).length > 1;
+    const p = this._p(hasLeg);
+    const labels = data.labels || [];
+    const datasets = data.datasets || [];
+    const n = labels.length;
+    if (!n) return;
+
+    let maxVal = 0;
+    if (stacked) {
+      for (let i = 0; i < n; i++) maxVal = Math.max(maxVal, datasets.reduce((s,ds)=>s+(ds.data[i]||0),0));
+    } else {
+      datasets.forEach(ds => ds.data.forEach(v => { if(v!=null) maxVal=Math.max(maxVal,v); }));
+    }
+    if (!maxVal) maxVal = 1;
+
+    const cW = W - p.l - p.r, cH = H - p.t - p.b;
+    const bgW = cW / n;
+    const nDs = Math.max(datasets.length, 1);
+    const barW = stacked ? bgW * 0.7 : (bgW * 0.78) / nDs;
+
+    /* grid lines */
+    ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.lineWidth = 1;
+    for (let i=1; i<=4; i++) {
+      const y = p.t + cH*(1 - i/4);
+      ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(W-p.r, y); ctx.stroke();
+    }
+
+    /* bars */
+    datasets.forEach((ds, di) => {
+      const stackBase = Array(n).fill(0);
+      ds.data.forEach((v, i) => {
+        if (v == null || v === 0) return;
+        const isHov = hov && hov.ptIdx === i;
+        const color = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
+        ctx.fillStyle = isHov ? (color||'#366B98') : (color||'#366B98');
+        ctx.globalAlpha = isHov ? 1 : (hov ? 0.65 : 1);
+        const bh = (v / maxVal) * cH;
+        const bx = stacked
+          ? p.l + i*bgW + bgW*(1-0.7)/2
+          : p.l + i*bgW + (bgW - nDs*barW)/2 + di*barW;
+        const by = stacked ? p.t + cH - bh - (stackBase[i]/maxVal)*cH : p.t + cH - bh;
+        const rr = Math.min(3, barW*0.18);
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(bx, by, barW, Math.max(bh,1), rr)
+                      : ctx.rect(bx, by, barW, Math.max(bh,1));
+        ctx.fill();
+        /* record first dataset bar for hit-testing */
+        if (di === 0 && geo) geo.bars.push({x:bx, y:by, w:barW, h:bh, idx:i, dsIdx:di});
+        if (stacked) stackBase[i] += v;
+      });
+    });
+    ctx.globalAlpha = 1;
+
+    /* x labels */
+    ctx.fillStyle = this._muted; ctx.font = `10px ${this._font}`; ctx.textAlign = 'center';
+    labels.forEach((lbl, i) => ctx.fillText(String(lbl), p.l + i*bgW + bgW/2, H - 6));
+
+    /* y labels */
+    ctx.textAlign = 'right';
+    for (let i=0; i<=4; i++) {
+      const v = maxVal * i/4;
+      const y = p.t + cH*(1 - i/4);
+      const fmt = options?.scales?.y?.ticks?.callback;
+      ctx.fillText(fmt ? fmt(v) : this._fmtNum(v), p.l - 4, y + 4);
+    }
+
+    if (hasLeg) this._drawLegend(ctx, W, p.t - 7, datasets);
+  },
+
+  _drawHBar(ctx, W, H, data, options, geo, hov) {
+    const labels = data.labels || [];
+    const ds = data.datasets?.[0];
+    if (!ds) return;
+    const values = ds.data || [];
+    const colors = Array.isArray(ds.backgroundColor)
+      ? ds.backgroundColor : Array(values.length).fill(ds.backgroundColor||'#366B98');
+    const n = labels.length;
+    const maxVal = Math.max(...values, 1);
+    const pl = 56, pr = 54, pt = 6, pb = 6;
+    const cW = W - pl - pr, cH = H - pt - pb;
+    const barH = Math.min((cH/n)*0.6, 26);
+    const gap  = cH / n;
+
+    values.forEach((v, i) => {
+      const y  = pt + i*gap + (gap-barH)/2;
+      const bw = Math.max((v/maxVal)*cW, v>0?2:0);
+      const isHov = hov && hov.ptIdx === i;
+      ctx.globalAlpha = isHov ? 1 : (hov ? 0.6 : 1);
+      ctx.fillStyle = colors[i] || '#366B98';
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(pl, y, bw, barH, 3) : ctx.rect(pl, y, bw, barH);
+      ctx.fill();
+      if (geo) geo.hbars.push({x:pl, y, w:Math.max(bw,cW*0.02), h:barH, idx:i, dsIdx:0});
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = this._muted; ctx.font = `10px ${this._font}`; ctx.textAlign = 'right';
+      ctx.fillText(labels[i], pl - 4, y + barH/2 + 4);
+
+      ctx.fillStyle = this._text; ctx.font = `bold 10px ${this._font}`; ctx.textAlign = 'left';
+      const fmt = options?.scales?.x?.ticks?.callback;
+      ctx.fillText(fmt ? fmt(v) : (v > 0 ? this._fmtNum(v) : '—'), pl + bw + 4, y + barH/2 + 4);
+    });
+    ctx.globalAlpha = 1;
+  },
+
+  _drawDoughnut(ctx, W, H, data, options, geo, hov) {
+    const cx = W/2, cy = H/2;
+    const r  = Math.min(W, H)/2 * 0.88;
+    const cutout = parseFloat(options?.cutout || '60%') / 100;
+    const inner  = r * cutout;
+    const vals   = (data.datasets?.[0]?.data || []).map(Number);
+    const colors = data.datasets?.[0]?.backgroundColor || [];
+    const total  = vals.reduce((a,b)=>a+b,0) || 1;
+    let angle = -Math.PI/2;
+
+    vals.forEach((v, i) => {
+      if (!v) return;
+      const slice = (v/total)*Math.PI*2;
+      const isHov = hov && hov.ptIdx === i;
+      const gap   = total > v ? 0.016 : 0;
+      const rr = isHov ? r * 1.04 : r;
+      ctx.globalAlpha = isHov ? 1 : (hov ? 0.7 : 1);
+      ctx.beginPath();
+      ctx.moveTo(cx + inner*Math.cos(angle+gap), cy + inner*Math.sin(angle+gap));
+      ctx.arc(cx, cy, rr, angle+gap, angle+slice-gap);
+      ctx.arc(cx, cy, inner, angle+slice-gap, angle+gap, true);
+      ctx.closePath();
+      ctx.fillStyle = colors[i] || '#ccc';
+      ctx.fill();
+      if (geo) geo.slices.push({cx, cy, r:rr, inner, a0:angle+gap, a1:angle+slice-gap, idx:i});
+      angle += slice;
+    });
+    ctx.globalAlpha = 1;
+  },
+
+  _drawLine(ctx, W, H, data, options, geo, hov) {
+    const hasLeg = options?.plugins?.legend?.display !== false;
+    const p = this._p(hasLeg);
+    const labels   = data.labels   || [];
+    const datasets = data.datasets || [];
+    const n = labels.length;
+    if (!n) return;
+
+    let maxVal = 0;
+    datasets.forEach(ds => ds.data.forEach(v => { if(v!=null) maxVal=Math.max(maxVal,v); }));
+    if (!maxVal) maxVal = 1;
+
+    const cW = W - p.l - p.r, cH = H - p.t - p.b;
+
+    /* grid */
+    ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.lineWidth = 1;
+    for (let i=1; i<=4; i++) {
+      const y = p.t + cH*(1-i/4);
+      ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(W-p.r, y); ctx.stroke();
+    }
+
+    /* hover crosshair */
+    if (hov) {
+      const hovX = p.l + (n>1 ? hov.ptIdx/(n-1) : 0.5)*cW;
+      ctx.strokeStyle = 'rgba(0,80,93,0.15)'; ctx.lineWidth = 1;
+      ctx.setLineDash([4,3]);
+      ctx.beginPath(); ctx.moveTo(hovX, p.t); ctx.lineTo(hovX, p.t+cH); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    /* lines + dots */
+    datasets.forEach((ds, di) => {
+      const pts = ds.data.map((v,i)=>({
+        x: p.l + (n>1 ? i/(n-1) : 0.5)*cW,
+        y: v!=null ? p.t + cH*(1 - v/maxVal) : null,
+        idx: i, dsIdx: di
+      }));
+      ctx.strokeStyle = ds.borderColor || '#0096CE';
+      ctx.lineWidth   = ds.borderWidth || 2.5;
+      ctx.lineJoin    = 'round';
+      if (ds.borderDash) ctx.setLineDash(ds.borderDash);
+      ctx.beginPath();
+      let first = true;
+      pts.forEach(pt => { if(pt.y===null){first=true;return;} first?ctx.moveTo(pt.x,pt.y):ctx.lineTo(pt.x,pt.y); first=false; });
+      ctx.stroke(); ctx.setLineDash([]);
+
+      /* dots */
+      const pr2 = ds.pointRadius ?? 3;
+      pts.forEach(pt => {
+        if(pt.y===null) return;
+        if (geo) geo.points.push({x:pt.x, y:pt.y, idx:pt.idx, dsIdx:pt.dsIdx});
+        const isHov = hov && hov.ptIdx === pt.idx;
+        const dotR = isHov ? Math.max(pr2, 5) : (pr2 > 0 ? pr2 : 0);
+        if (dotR <= 0) return;
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, dotR, 0, Math.PI*2);
+        ctx.fillStyle = ds.pointBackgroundColor || ds.borderColor || '#0096CE';
+        ctx.fill();
+        if (ds.pointBorderColor || isHov) {
+          ctx.strokeStyle = isHov ? '#fff' : ds.pointBorderColor;
+          ctx.lineWidth = isHov ? 2 : (ds.pointBorderWidth||1);
+          ctx.stroke();
+        }
+      });
+    });
+
+    /* x labels */
+    ctx.fillStyle=this._muted; ctx.font=`10px ${this._font}`; ctx.textAlign='center';
+    labels.forEach((lbl,i)=>ctx.fillText(String(lbl), p.l+(n>1?i/(n-1):0.5)*cW, H-6));
+
+    /* y labels */
+    ctx.textAlign='right';
+    for(let i=0;i<=4;i++){
+      const v=maxVal*i/4, y=p.t+cH*(1-i/4);
+      const fmt=options?.scales?.y?.ticks?.callback;
+      ctx.fillText(fmt?fmt(v):this._fmtNum(v), p.l-4, y+4);
+    }
+
+    if (hasLeg) this._drawLegend(ctx, W, p.t-7, datasets);
+  },
+
+  _drawLegend(ctx, W, y, datasets) {
+    ctx.font = `10px ${this._font}`;
+    const items = datasets.map(ds => ({
+      label: ds.label||'',
+      color: Array.isArray(ds.backgroundColor)?ds.backgroundColor[0]:(ds.borderColor||ds.backgroundColor||'#ccc'),
+      w: ctx.measureText(ds.label||'').width
+    }));
+    const totalW = items.reduce((s,it)=>s+it.w+20,0);
+    let x = Math.max(6, (W-totalW)/2);
+    items.forEach(it=>{
+      ctx.fillStyle=it.color; ctx.fillRect(x, y-7, 8, 8);
+      ctx.fillStyle=this._muted; ctx.textAlign='left';
+      ctx.fillText(it.label, x+12, y+1);
+      x += it.w+20;
+    });
+  },
+
+  _fmtNum(v) {
+    if (v>=1000000) return (v/1000000).toFixed(1)+'M';
+    if (v>=1000)    return (v/1000).toFixed(v>=10000?0:1)+'K';
+    return Math.round(v).toString();
+  }
+};
+
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --c1:#003B45;--c2:#00505D;--c3:#073350;--c4:#366B98;--c5:#0096CE;--c6:#7BC3D0;--c7:#DCDCDC;--c8:#E76E25;
+  --bg:#EDF3F5;--card:#ffffff;--text:#073350;--muted:#366B98;--border:rgba(0,80,93,.09);
+  --r8:8px;--r12:12px;--r16:16px;--r20:20px;
+}
+body{background:var(--bg);color:var(--text);min-height:100%;font-family:'Aptos','Calibri','Segoe UI',system-ui,-apple-system,sans-serif}
+
+/* ══ HEADER ══ */
+header{
+  background:linear-gradient(135deg,var(--c1) 0%,var(--c3) 48%,var(--c2) 100%);
+  padding:0 36px;height:68px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:300;box-shadow:0 2px 24px rgba(0,0,0,.3);
+}
+.h-brand{display:flex;align-items:center;gap:13px}
+.h-icon{width:36px;height:36px;border-radius:10px;background:transparent;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;color:#fff;flex-shrink:0}.h-icon img{mix-blend-mode:lighten}
+.h-name{font-size:16px;font-weight:700;color:#fff}
+.h-sub{font-size:10px;color:var(--c6);letter-spacing:.7px;margin-top:1px}
+.h-right{display:flex;align-items:center;gap:10px}
+.h-pill{padding:4px 13px;border-radius:20px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.6);font-size:11px;border:1px solid rgba(255,255,255,.14)}
+.conn-btn{display:flex;align-items:center;gap:7px;padding:7px 17px;border-radius:22px;border:1.5px solid rgba(0,150,206,.55);background:rgba(0,150,206,.13);color:var(--c6);font-size:12px;font-weight:600;cursor:pointer;font-family:'Aptos','Calibri',sans-serif;transition:all .2s}
+.conn-btn:hover{background:rgba(0,150,206,.28);color:#fff}
+
+/* ══ NAV TABS ══ */
+.nav-bar{
+  background:var(--c2);display:flex;align-items:stretch;padding:0 36px;
+  border-bottom:1px solid rgba(0,0,0,.14);
+}
+.nav-tab{
+  padding:0 22px;height:44px;display:flex;align-items:center;gap:7px;
+  border:none;background:none;cursor:pointer;white-space:nowrap;
+  font-size:12px;font-weight:600;color:rgba(255,255,255,.5);
+  border-bottom:3px solid transparent;font-family:'Aptos','Calibri',sans-serif;transition:all .2s;
+}
+.nav-tab:hover{color:rgba(255,255,255,.85)}
+.nav-tab.active{color:#fff;border-bottom-color:var(--c8)}
+.nav-tab .tab-icon{font-size:13px}
+.nav-sep{width:1px;background:rgba(255,255,255,.12);margin:10px 6px;flex-shrink:0}
+.month-strip{display:flex;overflow-x:auto;scrollbar-width:none;flex:1}
+.month-strip::-webkit-scrollbar{display:none}
+.m-btn{
+  padding:0 16px;height:44px;border:none;background:none;cursor:pointer;white-space:nowrap;
+  font-size:12px;font-weight:500;color:rgba(255,255,255,.45);
+  border-bottom:3px solid transparent;font-family:'Aptos','Calibri',sans-serif;transition:all .2s;
+}
+.m-btn:hover{color:rgba(255,255,255,.8)}
+.m-btn.active{color:#fff;border-bottom-color:var(--c6)}
+
+/* ══ PAGE VIEWS ══ */
+.page{display:none}.page.active{display:block}
+main{padding:26px 36px 60px;max-width:1520px;margin:0 auto}
+
+/* ══ SECTION LABELS ══ */
+.sec{font-size:10px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);margin:26px 0 13px;display:flex;align-items:center;gap:10px}
+.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ══ YTD HERO BANNER ══ */
+.ytd-hero{
+  background:linear-gradient(135deg,var(--c1) 0%,var(--c3) 60%,var(--c2) 100%);
+  border-radius:var(--r20);padding:36px 40px;margin-bottom:20px;
+  display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;
+  position:relative;overflow:hidden;
+}
+.ytd-hero::before{
+  content:'2026';position:absolute;right:-20px;top:-30px;
+  font-size:160px;font-weight:800;color:rgba(255,255,255,.04);line-height:1;
+  font-family:'Aptos','Calibri',sans-serif;pointer-events:none;
+}
+.hero-headline{font-size:26px;font-weight:700;color:#fff;margin-bottom:6px;line-height:1.2}
+.hero-sub{font-size:13px;color:var(--c6);line-height:1.5}
+.hero-stats{display:flex;gap:32px}
+.hs{text-align:center}
+.hs-val{font-size:30px;font-weight:700;color:#fff;line-height:1}
+.hs-lbl{font-size:10px;color:var(--c6);letter-spacing:.6px;text-transform:uppercase;margin-top:4px}
+.hero-divider{width:1px;background:rgba(255,255,255,.15);margin:4px 0}
+
+/* ══ KPI GRID ══ */
+.kpi-grid{display:grid;gap:12px;margin-bottom:4px}
+.kpi-grid-8{grid-template-columns:repeat(8,1fr)}
+.kpi-grid-7{grid-template-columns:repeat(7,1fr)}
+.kpi{background:var(--card);border-radius:var(--r12);padding:17px 16px 13px;border:1px solid var(--border);position:relative;overflow:hidden;box-shadow:0 1px 6px rgba(0,59,69,.05);transition:transform .15s,box-shadow .15s;cursor:default}
+.kpi:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(0,59,69,.1)}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0}
+.a-orange::before{background:var(--c8)}.a-sky::before{background:var(--c5)}
+.a-blue::before{background:var(--c4)}.a-navy::before{background:var(--c3)}
+.a-teal::before{background:var(--c2)}.a-mint::before{background:var(--c6)}
+.a-green::before{background:var(--c6)}.a-purple::before{background:var(--c4)}
+/* YTD balanced brand color ribbons — all 7 brand colors, no adjacent repeats */
+.ytd-k0::before{background:#E76E25}
+.ytd-k1::before{background:#073350}
+.ytd-k2::before{background:#0096CE}
+.ytd-k3::before{background:#003B45}
+.ytd-k4::before{background:#7BC3D0}
+.ytd-k5::before{background:#00505D}
+.ytd-k6::before{background:#366B98}
+.ytd-k7::before{background:#E76E25}
+.kpi-lbl{font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.kpi-val{font-size:22px;font-weight:700;color:var(--text);line-height:1}
+.kpi-dl{font-size:11px;margin-top:5px;font-weight:600}
+.up{color:var(--c2)}.dn{color:var(--c8)}.neu{color:var(--muted)}
+
+/* ══ PANELS ══ */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch}
+.g3{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch}
+.g3e{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px;align-items:stretch}
+.g31{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch}
+.g211{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch}
+.panel{background:var(--card);border-radius:var(--r16);padding:18px 20px;border:1px solid var(--border);box-shadow:0 1px 8px rgba(0,59,69,.04)}
+.pt{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.pt-r{font-size:10px;font-weight:500;color:var(--muted);margin-top:2px;white-space:nowrap}
+.ps{font-size:11px;color:var(--muted);margin-top:2px;margin-bottom:10px;line-height:1.45}
+
+/* ══ BADGES ══ */
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+.tier1{background:#fdeee4;color:#7d2e0d}
+.tier2{background:#e2eef8;color:#1d4f80}
+.tier3{background:rgba(123,195,208,.15);color:var(--c2)}
+.tier4{background:rgba(54,107,152,.12);color:var(--c3)}
+.g-rel{background:rgba(0,150,206,.1);color:#005f8a}
+.g-lead{background:rgba(231,110,37,.1);color:#8f4410}
+.c-log{background:rgba(0,80,93,.08);color:#003b45;border:1px solid rgba(0,80,93,.15)}
+.c-pres{background:rgba(54,107,152,.1);color:#1d4f80;border:1px solid rgba(54,107,152,.2)}
+.s-comp{background:rgba(0,150,206,.1);color:var(--c2)}
+.s-up{background:#e2eef8;color:#1d4f80}
+.s-prog{background:#fdeee4;color:#8f3510}
+.tr-pos{background:rgba(0,80,93,.1);color:var(--c2)}
+.tr-neu{background:rgba(54,107,152,.1);color:#1d4f80}
+
+/* ══ FILTERS ══ */
+.filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 16px}
+.fl{font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-transform:uppercase}
+select.fs{padding:6px 28px 6px 12px;border-radius:20px;border:1.5px solid var(--c7);font-size:12px;color:var(--text);background:var(--card);font-family:'Aptos','Calibri',sans-serif;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23366B98'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;transition:border-color .2s}
+select.fs:focus{border-color:var(--c5);outline:none}
+
+/* ══ TABLE ══ */
+.tbl-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:1600px}
+thead th{padding:9px 12px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);background:#F6FAFB;white-space:nowrap}
+tbody tr{transition:background .1s}
+tbody tr:hover{background:rgba(0,150,206,.038)}
+tbody td{padding:10px 12px;border-bottom:1px solid rgba(220,220,220,.4);vertical-align:middle;white-space:nowrap}
+td.wrap{white-space:normal;min-width:160px}
+.num{font-weight:700;font-variant-numeric:tabular-nums}
+.cg{color:var(--c2)}.cr{color:var(--c8)}.cb{color:var(--c4)}.co{color:var(--c8)}
+.src{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(0,150,206,.08);color:var(--c4);border:1px solid rgba(0,150,206,.15)}
+
+/* ══ PROGRESS ══ */
+.prog-list{display:flex;flex-direction:column;gap:14px;margin-top:6px}
+.prog-meta{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px}
+.prog-name{font-weight:600;color:var(--text)}
+.prog-num{font-weight:700;color:var(--muted)}
+.prog-track{height:8px;background:var(--c7);border-radius:4px;overflow:hidden}
+.prog-fill{height:100%;border-radius:4px;transition:width 1s cubic-bezier(.4,0,.2,1)}
+
+/* ══ SPEND ══ */
+.spend-list{display:flex;flex-direction:column;gap:16px;margin-top:6px}
+.spend-hdr{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px}
+.spend-tier{font-weight:700;color:var(--text)}
+.track-row{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted);margin-bottom:4px}
+.track-lbl{width:48px;flex-shrink:0}
+.track-bar{flex:1;height:9px;border-radius:4px;overflow:hidden;background:var(--c7)}
+.track-fill{height:100%;border-radius:4px;transition:width 1s cubic-bezier(.4,0,.2,1)}
+.track-val{width:40px;text-align:right;font-weight:700;font-size:11px;color:var(--text);flex-shrink:0}
+
+/* ══ DONUT LEGEND ══ */
+.dleg{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.dleg-row{display:flex;align-items:center;gap:7px;font-size:11px}
+.dleg-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.dleg-pct{margin-left:auto;font-weight:700;color:var(--text)}
+
+/* ══ GOAL CARDS ══ */
+.goal-duo{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;margin-bottom:10px}
+.goal-card{border-radius:var(--r12);padding:12px 10px;border:1.5px solid;text-align:center}
+.gc-rel{background:rgba(0,150,206,.05);border-color:rgba(0,150,206,.25)}
+.gc-lead{background:rgba(231,110,37,.05);border-color:rgba(231,110,37,.25)}
+.gc-icon{font-size:18px;margin-bottom:3px}
+.gc-lbl{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+.gc-val{font-size:22px;font-weight:700;color:var(--text);margin-top:3px}
+.gc-sub{font-size:9px;color:var(--muted);margin-top:2px}
+
+/* ══ TIER SCORECARD ══ */
+.tier-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:8px}
+.ts{border-radius:var(--r12);padding:13px 14px;border:1.5px solid;position:relative;overflow:hidden}
+.ts1{background:rgba(231,110,37,.05);border-color:rgba(231,110,37,.25)}
+.ts2{background:rgba(0,150,206,.05);border-color:rgba(0,150,206,.25)}
+.ts3{background:rgba(123,195,208,.07);border-color:rgba(123,195,208,.35)}
+.ts4{background:rgba(54,107,152,.07);border-color:rgba(54,107,152,.3)}
+.ts-lbl{font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:4px}
+.ts1 .ts-lbl{color:var(--c8)}.ts2 .ts-lbl{color:var(--c5)}.ts3 .ts-lbl{color:var(--c2)}.ts4 .ts-lbl{color:var(--c4)}
+.ts-events{font-size:22px;font-weight:700;color:var(--text)}
+.ts-detail{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.5}
+.ts-roi{font-size:11px;font-weight:700;color:var(--text);margin-top:6px}
+
+/* ══ COMM ══ */
+.comm-list{display:flex;flex-direction:column;gap:0;margin-top:8px}
+.comm-row{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid rgba(220,220,220,.4)}
+.comm-row:last-child{border-bottom:none}
+.comm-ico{width:30px;height:30px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;margin-top:1px}
+.comm-type{font-size:12px;font-weight:700;color:var(--text)}
+.comm-date{font-size:10px;color:var(--muted);margin-top:1px}
+.comm-note{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.45}
+
+/* ══ TRIP ══ */
+.trip-grid-2{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.trip-card{background:var(--bg);border-radius:var(--r8);padding:13px 15px;border-left:3px solid var(--c5);transition:border-color .2s;overflow:visible}
+.trip-card:hover{border-left-color:var(--c8)}
+.trip-name{font-size:11px;font-weight:700;color:var(--text);margin-bottom:5px}
+.trip-body{font-size:11px;color:var(--muted);line-height:1.6;white-space:normal;word-break:break-word;overflow:visible}
+.trip-foot{display:flex;align-items:center;justify-content:space-between;margin-top:7px}
+
+/* ══ YTD SUMMARY TABLE ══ */
+.ytd-tbl-wrap{overflow-x:auto;margin-top:4px}
+.ytd-tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:800px}
+.ytd-tbl thead th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);background:#F6FAFB;white-space:nowrap}
+.ytd-tbl tbody tr{transition:background .1s;cursor:pointer}
+.ytd-tbl tbody tr:hover{background:rgba(0,150,206,.05)}
+.ytd-tbl tbody td{padding:10px 14px;border-bottom:1px solid rgba(220,220,220,.4);vertical-align:middle}
+.click-hint{font-size:10px;color:var(--muted);font-style:italic;margin-top:8px}
+
+/* ══ MODAL ══ */
+.modal-bg{display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:500;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:var(--r20);padding:34px;width:480px;max-width:95vw;box-shadow:0 24px 72px rgba(0,0,0,.28)}
+.modal h2{font-size:19px;font-weight:700;color:var(--text);margin-bottom:6px}
+.modal p{font-size:12px;color:var(--muted);margin-bottom:22px;line-height:1.6}
+.modal label{font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--muted);display:block;margin-bottom:4px;text-transform:uppercase}
+.modal input,.modal select{width:100%;padding:10px 14px;border-radius:var(--r8);border:1.5px solid var(--c7);font-size:13px;font-family:'Aptos','Calibri',sans-serif;color:var(--text);margin-bottom:14px;transition:border-color .2s}
+.modal input:focus,.modal select:focus{outline:none;border-color:var(--c5)}
+.modal-btns{display:flex;gap:10px;margin-top:4px}
+.btn-p{flex:1;padding:11px;border-radius:var(--r8);border:none;background:var(--c2);color:#fff;font-size:13px;font-weight:700;font-family:'Aptos','Calibri',sans-serif;cursor:pointer;transition:background .2s}
+.btn-p:hover{background:var(--c1)}
+.btn-c{padding:11px 20px;border-radius:var(--r8);border:1.5px solid var(--c7);background:#fff;color:var(--muted);font-size:13px;font-family:'Aptos','Calibri',sans-serif;cursor:pointer}
+
+/* ══ ANIMATIONS ══ */
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.panel,.kpi,.ytd-hero{animation:fadeUp .35s ease both}
+.kpi:nth-child(2){animation-delay:.04s}.kpi:nth-child(3){animation-delay:.08s}
+.kpi:nth-child(4){animation-delay:.12s}.kpi:nth-child(5){animation-delay:.16s}
+.kpi:nth-child(6){animation-delay:.2s}.kpi:nth-child(7){animation-delay:.24s}
+.kpi:nth-child(8){animation-delay:.28s}
+@keyframes countUp{from{opacity:0}to{opacity:1}}
+
+@media(max-width:1280px){.kpi-grid-8{grid-template-columns:repeat(4,1fr)}.kpi-grid-7{grid-template-columns:repeat(4,1fr)}.g3,.g211{grid-template-columns:1fr 1fr}.g4{grid-template-columns:1fr 1fr}}
+@media(max-width:840px){main{padding:16px}.kpi-grid-8,.kpi-grid-7{grid-template-columns:1fr 1fr}.g2,.g3,.g3e,.g4,.g31,.g211{grid-template-columns:1fr}.tier-grid{grid-template-columns:1fr 1fr}.hero-stats{gap:18px}.ytd-hero{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="app" style="position:relative;min-height:100vh">
+
+<!-- HEADER -->
+<header>
+  <div class="h-brand" id="headerBrand" style="cursor:pointer">
+    <div class="h-icon" style="padding:0;overflow:hidden;background:transparent"><img src="data:image/png;base64,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" style="width:100%;height:100%;object-fit:contain;display:block"></div>
+    <div>
+      <div class="h-name">Event ROI Dashboard</div>
+
+    </div>
+  </div>
+  <div class="h-right">
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-right:4px">
+      <span style="font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,.45)">Last Updated</span>
+      <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.8)" id="syncText">—</span>
+    </div>
+    <div id="livePill" style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.07);font-size:11px;font-weight:600;color:rgba(255,255,255,.5)" title="Live sync status">
+      <span id="liveDot" style="width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.3);flex-shrink:0;transition:background .3s"></span>
+      <span id="liveLabel">Connecting…</span>
+    </div>
+    <button class="conn-btn" id="btnUpload">✏️ Edit Data</button>
+  </div>
+</header>
+
+<!-- NAV BAR -->
+<div class="nav-bar">
+  <button class="nav-tab active" id="tabYTD">
+    <span class="tab-icon">📊</span> YTD Overview
+  </button>
+  <button class="nav-tab" id="tabMonthly">
+    <span class="tab-icon">📅</span> Monthly Detail
+  </button>
+  <div class="nav-sep"></div>
+  <div class="month-strip" id="monthStrip">
+    <button class="m-btn active" data-m="0" >Jan</button>
+    <button class="m-btn" data-m="1" >Feb</button>
+    <button class="m-btn" data-m="2" >Mar</button>
+    <button class="m-btn" data-m="3" >Apr</button>
+    <button class="m-btn" data-m="4" >May</button>
+    <button class="m-btn" data-m="5" >Jun</button>
+    <button class="m-btn" data-m="6" >Jul</button>
+    <button class="m-btn" data-m="7" >Aug</button>
+    <button class="m-btn" data-m="8" >Sep</button>
+    <button class="m-btn" data-m="9" >Oct</button>
+    <button class="m-btn" data-m="10">Nov</button>
+    <button class="m-btn" data-m="11">Dec</button>
+  </div>
+</div>
+
+<!-- ══ YTD PAGE ══ -->
+<div class="page active" id="pageYTD">
+<main>
+
+  <!-- HERO -->
+  <div class="ytd-hero" style="animation-delay:.05s">
+    <div>
+      <div class="hero-headline">Year-to-Date Performance &nbsp;· &nbsp;2026</div>
+      <div class="hero-sub">Tracking MQLs, SQLs, and Opportunities generated across all 2026 events.<br>Click any month row below to drill into that month's full lead and event detail.</div>
+    </div>
+    <div class="hero-stats">
+      <div class="hs"><div class="hs-val" id="ytd-total-events">—</div><div class="hs-lbl">Total Events</div></div>
+      <div class="hero-divider"></div>
+      <div class="hs"><div class="hs-val" id="ytd-total-mql">—</div><div class="hs-lbl">Total MQLs</div></div>
+      <div class="hero-divider"></div>
+      <div class="hs"><div class="hs-val" id="ytd-total-opps">—</div><div class="hs-lbl">Total Opps</div></div>
+      <div class="hero-divider"></div>
+      <div class="hs"><div class="hs-val" id="ytd-total-rev">—</div><div class="hs-lbl">Total Spend</div></div>
+    </div>
+  </div>
+
+  <!-- YTD KPIs -->
+  <div class="sec">Year-to-Date KPIs</div>
+  <div class="kpi-grid kpi-grid-8">
+    <div class="kpi ytd-k0"><div class="kpi-lbl">Total Events</div><div class="kpi-val" id="yk0">—</div><div class="kpi-dl neu" id="yd0"></div></div>
+    <div class="kpi ytd-k1"><div class="kpi-lbl">Total MQLs</div><div class="kpi-val" id="yk1">—</div><div class="kpi-dl neu" id="yd1"></div></div>
+    <div class="kpi ytd-k2"><div class="kpi-lbl">Total SQLs</div><div class="kpi-val" id="yk2">—</div><div class="kpi-dl neu" id="yd2"></div></div>
+    <div class="kpi ytd-k3"><div class="kpi-lbl">Total Opps</div><div class="kpi-val" id="yk3">—</div><div class="kpi-dl neu" id="yd3"></div></div>
+    <div class="kpi ytd-k4"><div class="kpi-lbl">Budgeted (USD)</div><div class="kpi-val" id="yk4">—</div><div class="kpi-dl neu" id="yd4"></div></div>
+    <div class="kpi ytd-k5"><div class="kpi-lbl">Actuals (USD)</div><div class="kpi-val" id="yk5">—</div><div class="kpi-dl neu" id="yd5"></div></div>
+    <div class="kpi ytd-k6"><div class="kpi-lbl">ROI</div><div class="kpi-val" id="yk6">—</div><div class="kpi-dl neu" id="yd6"></div></div>
+    <div class="kpi ytd-k7"><div class="kpi-lbl">Variance</div><div class="kpi-val" id="yk7">—</div><div class="kpi-dl neu" id="yd7"></div></div>
+  </div>
+
+  <!-- YTD CHARTS ROW 1: Funnel + Spend -->
+  <div class="sec">Annual Trend &amp; Mix</div>
+  <div class="g2">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">MQL → SQL → Opportunity — Full Year <span class="pt-r">Jan–Dec 2026</span></div>
+      <div class="ps">Monthly funnel performance across all tiers and events</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:240px"><canvas id="ytdFunnelChart" style="width:100%;height:100%"></canvas></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Spend vs Budget — Monthly</div>
+      <div class="ps">Budgeted vs actual spend by month</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:240px"><canvas id="ytdSpendChart" style="width:100%;height:100%"></canvas></div>
+    </div>
+  </div>
+
+  <!-- YTD CHARTS ROW 2: Event Origin + Events per Tier -->
+  <div class="g2">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Budget Origin <span class="pt-r">YTD</span></div>
+      <div class="ps">Whether event budgets are based on 2025 actuals or are new for 2026</div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 150px;gap:12px;align-items:center;min-height:180px">
+        <div style="position:relative;height:100%"><canvas id="ytdSrcChart" style="width:100%;height:100%"></canvas></div>
+        <div class="dleg" id="ytdSrcLeg" style="align-self:center"></div>
+      </div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Events per Tier <span class="pt-r">by month</span></div>
+      <div class="ps">Monthly event count stacked by tier — full year</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:180px"><canvas id="ytdTierMonthChart" style="width:100%;height:100%"></canvas></div>
+    </div>
+  </div>
+
+  <!-- YTD TIER SCORECARD -->
+  <div class="sec">YTD Performance by Tier</div>
+  <div class="panel" style="margin-bottom:16px">
+    <div class="pt">Tier Scorecard — Full Year 2026 <span class="pt-r">all months combined</span></div>
+    <div class="ps">Events, leads, conversions and ROI aggregated by tier across January – December</div>
+    <div class="tier-grid" id="ytdTierGrid"></div>
+  </div>
+
+  <!-- YTD GOAL + ROI -->
+  <div class="g2">
+    <div class="panel">
+      <div class="pt">Goal Type — YTD</div>
+      <div class="ps">Relationship Building and Lead Generation event counts vs annual targets</div>
+      <div class="goal-duo" id="ytdGoalDuo"></div>
+      <div class="prog-list" id="ytdGoalProgs"></div>
+    </div>
+    <div class="panel">
+      <div class="pt">ROI by Tier — YTD Average</div>
+      <div class="ps">Average return on investment per tier across all 2026 events</div>
+      <div style="position:relative;height:185px"><canvas id="ytdROIChart" style="width:100%;height:100%"></canvas></div>
+    </div>
+  </div>
+
+  <!-- YTD MONTHLY SUMMARY TABLE -->
+  <div class="sec">Monthly Summary</div>
+  <div class="panel">
+    <div class="pt">2026 Month-by-Month Results <span class="pt-r">click a row to view monthly detail</span></div>
+    <div class="ps">Aggregated metrics per month — select any row to navigate directly to that month's full breakdown</div>
+    <div class="ytd-tbl-wrap">
+      <table class="ytd-tbl" id="ytdSummaryTable">
+        <thead>
+          <tr>
+            <th>Event Month</th>
+            <th>Events</th>
+            <th>MQLs</th>
+            <th>SQLs</th>
+            <th>Opps</th>
+            <th>Budgeted (USD)</th>
+            <th>Actuals (USD)</th>
+            <th>Variance</th>
+            <th>ROI</th>
+          </tr>
+        </thead>
+        <tbody id="ytdSummaryBody"></tbody>
+      </table>
+    </div>
+    <div class="click-hint">👆 Click any row to jump to that month's full detail view</div>
+  </div>
+
+</main>
+</div>
+
+<!-- ══ MONTHLY PAGE ══ -->
+<div class="page" id="pageMonthly">
+<main>
+
+  <!-- MONTHLY KPIs -->
+  <div class="sec">Key Performance Indicators — <span id="kpiLbl">December 2026</span></div>
+  <div class="kpi-grid kpi-grid-8">
+    <div class="kpi a-orange"><div class="kpi-lbl">Total Events</div><div class="kpi-val" id="kv0">—</div><div class="kpi-dl" id="kd0"></div></div>
+    <div class="kpi a-sky">   <div class="kpi-lbl">MQLs</div><div class="kpi-val" id="kv1">—</div><div class="kpi-dl" id="kd1"></div></div>
+    <div class="kpi a-blue">  <div class="kpi-lbl">SQLs</div><div class="kpi-val" id="kv2">—</div><div class="kpi-dl" id="kd2"></div></div>
+    <div class="kpi a-navy">  <div class="kpi-lbl">Opportunities</div><div class="kpi-val" id="kv3">—</div><div class="kpi-dl" id="kd3"></div></div>
+    <div class="kpi a-orange">  <div class="kpi-lbl">Budgeted (USD)</div><div class="kpi-val" id="kv4">—</div><div class="kpi-dl" id="kd4"></div></div>
+    <div class="kpi a-teal"><div class="kpi-lbl">Actuals (USD)</div><div class="kpi-val" id="kv5">—</div><div class="kpi-dl" id="kd5"></div></div>
+    <div class="kpi a-orange"> <div class="kpi-lbl">ROI</div><div class="kpi-val" id="kv6">—</div><div class="kpi-dl" id="kd6"></div></div>
+    <div class="kpi a-teal">  <div class="kpi-lbl">Variance</div><div class="kpi-val" id="kv7">—</div><div class="kpi-dl" id="kd7"></div></div>
+  </div>
+
+  <!-- TIER SCORECARD -->
+  <div class="sec">Performance by Tier — <span id="tierLbl">December 2026</span></div>
+  <div class="panel" style="margin-bottom:16px">
+    <div class="pt">Tier Scorecard <span class="pt-r" id="tierScoreLbl"></span></div>
+    <div class="ps">Events, MQLs, SQLs, Opportunities and ROI per tier for the selected month</div>
+    <div class="tier-grid" id="mTierGrid"></div>
+  </div>
+
+  <!-- FUNNEL + SPEND + GOALS -->
+  <div class="sec">Pipeline, Spend &amp; Goals</div>
+  <div class="g3">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Pipeline Metrics <span class="pt-r">Selected month</span></div>
+      <div class="ps">MQLs, SQLs and Opportunities for the selected month</div>
+      <div style="flex:1;min-height:0;position:relative"><canvas id="mFunnelChart" style="width:100%;height:100%"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Variance</div>
+      <div class="ps">By tier — variance shown per tier</div>
+      <div class="spend-list" id="mSpendList"></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Goal Type</div>
+      <div class="ps">Relationship Building &amp; Lead Generation</div>
+      <div class="goal-duo" id="mGoalDuo"></div>
+      <div class="prog-list" id="mGoalProgs"></div>
+    </div>
+  </div>
+
+  <!-- SOURCE + ROI + TIER MIX -->
+  <div class="g3e">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Budget Origin <span class="pt-r">by source</span></div>
+      <div class="ps">Whether event budgets are based on 2025 actuals or are new for 2026</div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 140px;gap:10px;align-items:center">
+        <div style="position:relative;height:100%;min-height:140px"><canvas id="mSrcChart" style="width:100%;height:100%"></canvas></div>
+        <div class="dleg" id="mSrcLeg" style="align-self:center"></div>
+      </div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">ROI by Tier</div>
+      <div class="ps">Return on investment per event tier</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="mROIChart" style="width:100%;height:100%"></canvas></div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;flex-shrink:0" id="mROIRows"></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Tier Distribution <span class="pt-r" id="tierDistLbl"></span></div>
+      <div class="ps">Share of events by tier this month</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="mTierChart" style="width:100%;height:100%"></canvas></div>
+      <div class="dleg" id="mTierLeg" style="flex-shrink:0;margin-top:8px"></div>
+    </div>
+  </div>
+
+  <!-- COMM + TRIP -->
+  <div class="g2">
+    <div class="panel">
+      <div class="pt">Communication Log <span class="pt-r" id="commLbl"></span></div>
+      <div class="ps">Logistics Documents and Pre-Show Presentations sent this month</div>
+      <div class="comm-list" id="mCommList"></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Trip Report Results</div>
+      <div class="ps">Post-event debrief highlights and outcomes</div>
+      <div class="trip-grid-2" id="mTripGrid"></div>
+    </div>
+  </div>
+
+  <!-- MONTHLY OVERVIEW TABLE -->
+  <div class="sec">Monthly Overview — <span id="tableLbl">December 2026</span></div>
+  <div class="panel">
+    <div class="pt">Event Data for <span id="tableLblInner">December 2026</span></div>
+    <div class="filter-bar">
+      <span class="fl">Filter:</span>
+      <select class="fs" id="fTier"><option value="">All Tiers</option><option>Tier 1</option><option>Tier 2</option><option>Tier 3</option><option>Tier 4</option></select>
+      <select class="fs" id="fGoal"><option value="">All Goal Types</option><option>Relationship Building</option><option>Lead Generation</option></select>
+      <select class="fs" id="fSource"><option value="">All Sources</option></select>
+    </div>
+    <div class="tbl-scroll">
+      <table style="min-width:1400px">
+        <thead><tr>
+          <th>Abbr</th>
+          <th>Full Name</th>
+          <th>Start Date</th>
+          <th>End Date</th>
+          <th>Tier</th>
+          <th>Goal Type</th>
+          <th>Source</th>
+          <th>Budgeted (USD)</th>
+          <th>Actuals (USD)</th>
+          <th>Variance</th>
+          <th>MQLs</th>
+          <th>SQLs</th>
+          <th>Opportunities</th>
+          <th>ROI</th>
+          <th>Trip Report Results</th>
+          <th>Comm Type</th>
+          <th>Comm Date</th>
+        </tr></thead>
+        <tbody id="evtBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- DATA GRID MODAL -->
+<div class="modal-bg" id="modalBg">
+  <div id="gridModal" style="background:#fff;border-radius:var(--r20);width:96vw;max-width:1400px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 72px rgba(0,0,0,.28);overflow:hidden">
+
+    <!-- GRID HEADER -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px 14px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div>
+        <div style="font-size:17px;font-weight:700;color:var(--text)">Event Data Editor</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Edit any field inline — changes apply to the dashboard immediately on save</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button id="gridAddRow" style="display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:var(--r8);border:1.5px solid var(--c5);background:rgba(0,150,206,.08);color:var(--c5);font-size:12px;font-weight:600;cursor:pointer;font-family:'Aptos','Calibri',sans-serif">＋ Add Event</button>
+        <button id="gridSave"    style="padding:7px 20px;border-radius:var(--r8);border:none;background:var(--c2);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Aptos','Calibri',sans-serif">✓ Save &amp; Apply</button>
+        <button id="gridReset"  style="padding:7px 16px;border-radius:var(--r8);border:1.5px solid rgba(231,110,37,.4);background:rgba(231,110,37,.06);color:var(--c8);font-size:12px;font-family:'Aptos','Calibri',sans-serif;cursor:pointer" title="Discard all edits and restore original source data">↺ Reset to Original</button>
+        <button id="gridCancel" style="padding:7px 16px;border-radius:var(--r8);border:1.5px solid var(--c7);background:#fff;color:var(--muted);font-size:12px;font-family:'Aptos','Calibri',sans-serif;cursor:pointer">Cancel</button>
+      </div>
+    </div>
+
+    <!-- FILTER / SEARCH BAR -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 24px;border-bottom:1px solid var(--border);flex-shrink:0;background:#F6FAFB">
+      <input id="gridSearch" placeholder="🔍  Search events…" style="flex:1;padding:7px 12px;border-radius:var(--r8);border:1.5px solid var(--c7);font-size:12px;font-family:'Aptos','Calibri',sans-serif;color:var(--text);max-width:280px">
+      <select id="gridFilterMonth" style="padding:7px 28px 7px 10px;border-radius:var(--r8);border:1.5px solid var(--c7);font-size:12px;font-family:'Aptos','Calibri',sans-serif;color:var(--text);appearance:none;background:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22%3E%3Cpath d=%22M0 0l5 6 5-6z%22 fill=%22%23366B98%22/%3E%3C/svg%3E') no-repeat right 10px center #fff">
+        <option value="">All Months</option>
+        <option>January</option><option>February</option><option>March</option><option>April</option>
+        <option>May</option><option>June</option><option>July</option><option>August</option>
+        <option>September</option><option>October</option><option>November</option><option>December</option>
+      </select>
+      <select id="gridFilterTier" style="padding:7px 28px 7px 10px;border-radius:var(--r8);border:1.5px solid var(--c7);font-size:12px;font-family:'Aptos','Calibri',sans-serif;color:var(--text);appearance:none;background:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22%3E%3Cpath d=%22M0 0l5 6 5-6z%22 fill=%22%23366B98%22/%3E%3C/svg%3E') no-repeat right 10px center #fff">
+        <option value="">All Tiers</option><option>Tier 1</option><option>Tier 2</option><option>Tier 3</option><option>Tier 4</option>
+      </select>
+      <span id="gridRowCount" style="font-size:11px;color:var(--muted);white-space:nowrap;margin-left:4px"></span>
+    </div>
+
+    <!-- GRID TABLE -->
+    <div style="overflow:auto;flex:1;padding:0">
+      <table id="gridTable" style="width:100%;border-collapse:collapse;font-size:12px;min-width:2000px">
+        <thead>
+          <tr style="position:sticky;top:0;z-index:10;background:#F0F5F7">
+            <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:36px"></th>
+            <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:70px">Abbr</th>
+            <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:200px">Event Name</th>
+            <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Month</th>
+            <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Tier</th>
+            <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Goal</th>
+            <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Source</th>
+            <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Budget ($)</th>
+            <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Actual ($)</th>
+            <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">MQLs</th>
+            <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">SQLs</th>
+            <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Opps</th>
+            <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">ROI</th>
+<th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Comm Type</th>
+<th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:100px">Comm Date</th>
+<th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:100px">Start Date</th>
+            <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:100px">End Date</th>
+            <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Sentiment</th>
+            <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:280px">Trip Report</th>
+          </tr>
+        </thead>
+        <tbody id="gridBody"></tbody>
+      </table>
+    </div>
+
+    <!-- GRID FOOTER -->
+    <div style="padding:10px 24px;border-top:1px solid var(--border);flex-shrink:0;background:#F6FAFB;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:11px;color:var(--muted)">Click any cell to edit · Tab to move right · Enter to confirm · Del row with 🗑</div>
+      <div id="gridSaveStatus" style="font-size:11px;font-weight:600;color:var(--c2)"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════
+   REAL-TIME SYNC — Vercel serverless + JSONBin.io (free).
+   All users poll /api/data every 5 seconds. Changes made
+   by any user appear within 5 seconds for everyone else.
+   No websockets, no paid services, no individual tokens.
+
+   Setup: deploy to Vercel, add JSONBIN_API_KEY + API_SECRET
+   as environment variables, then click ⚙ Live Sync in the
+   dashboard header to enter your Vercel URL + secret.
+   ══════════════════════════════════════════════════════════ */
+
+const API = {
+  /* Config is hardcoded — no per-user setup needed.
+     Every browser automatically syncs via the same endpoint. */
+  POLL_MS: 5000,
+  _pollTimer: null,
+  _lastUpdatedAt: 0,
+  _isSaving: false,
+
+  _secret: '2026events',
+  _endpoint: '/api/data',
+
+  isConfigured() { return true; },
+
+  _headers() {
+    return { 'Content-Type': 'application/json', 'X-API-Secret': this._secret };
+  },
+
+  _url() { return this._endpoint + '?_t=' + Date.now(); },
+
+  async load() {
+    try {
+      const resp = await fetch(this._url(), { headers: this._headers() });
+      if (!resp.ok) throw new Error('API ' + resp.status);
+      const json = await resp.json();
+      if (json.error) throw new Error(json.error);
+      return json.pool ? json : null;
+    } catch(e) {
+      console.warn('[API] Load failed:', e.message);
+      return null;
+    }
+  },
+
+  async save(pool) {
+    this._isSaving = true;
+    try {
+      const resp = await fetch(this._endpoint, {
+        method: 'POST',
+        headers: this._headers(),
+        body: JSON.stringify({ pool })
+      });
+      const json = await resp.json();
+      if (!resp.ok || json.error) throw new Error(json.error || 'API ' + resp.status);
+      this._lastUpdatedAt = json.updatedAt || Date.now();
+      if (json.binId) console.info('[API] Bin created — add JSONBIN_BIN_ID=' + json.binId + ' to Vercel env vars');
+      return { ok: true, savedAt: json.savedAt };
+    } catch(e) {
+      console.error('[API] Save failed:', e.message);
+      return { ok: false, error: e.message };
+    } finally {
+      this._isSaving = false;
+    }
+  },
+
+  async test() {
+    try {
+      const resp = await fetch(this._url(), { headers: this._headers() });
+      if (resp.status === 401) return { ok: false, error: 'Invalid API secret' };
+      if (resp.status === 500) {
+        const j = await resp.json().catch(()=>({}));
+        return { ok: false, error: j.error || 'Server error — check Vercel env vars' };
+      }
+      if (!resp.ok) return { ok: false, error: 'HTTP ' + resp.status };
+      return { ok: true };
+    } catch(e) {
+      return { ok: false, error: e.message };
+    }
+  },
+
+  startPolling() {
+    this.stopPolling();
+    this._pollTimer = setInterval(() => this._poll(), this.POLL_MS);
+    console.info('[API] Polling every ' + (this.POLL_MS/1000) + 's');
+  },
+
+  stopPolling() {
+    if (this._pollTimer) { clearInterval(this._pollTimer); this._pollTimer = null; }
+  },
+
+  async _poll() {
+    if (this._isSaving) return;
+    try {
+      const data = await this.load();
+      if (!data || !Array.isArray(data.pool)) return;
+      const serverTs = data.updatedAt || 0;
+      if (serverTs && serverTs <= this._lastUpdatedAt) return;
+      const incoming = JSON.stringify(data.pool);
+      const current  = JSON.stringify(POOL);
+      if (incoming === current) { this._lastUpdatedAt = serverTs || this._lastUpdatedAt; return; }
+      this._lastUpdatedAt = serverTs || Date.now();
+      POOL.length = 0;
+      data.pool.forEach(e => POOL.push(e));
+      if (data.savedAt) {
+        const syncEl = document.getElementById('syncText');
+        if (syncEl) syncEl.textContent = data.savedAt;
+      }
+      bootstrapFromPool();
+      const isYTD = $s('pageYTD')?.classList.contains('active');
+      Object.keys(charts).forEach(k => { if(charts[k]){charts[k].destroy();delete charts[k];} });
+      renderYTD();
+      if (isYTD) showYTD(); else renderMonthly(curMonth);
+      setGhStatus('incoming');
+      setTimeout(() => setGhStatus('ok'), 1500);
+      console.info('[API] Live update from ' + data.savedAt);
+    } catch(e) {
+      console.warn('[API] Poll error:', e.message);
+    }
+  }
+};
+
+const GH = API;
+
+
+/* ══ DATA ══ */
+const MO = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+const D = {
+  events:[9,11,14,15,13,16,14,17,12,15,13,16],
+  mql:   [128,155,196,228,200,248,220,268,190,242,224,280],
+  sql:   [51,62,80,93,82,100,90,110,76,98,91,116],
+  opps:  [19,23,31,36,32,39,35,43,30,38,35,45],
+  budget:[45,53,67,75,70,84,78,92,65,82,77,94],
+  actual:[42,55,64,78,67,86,74,88,63,84,73,90]
+};
+D.roi = D.actual.map((a,i)=>Math.round(((D.opps[i]*18500-a*1000)/(a*1000))*100));
+D.variance = D.actual.map((a,i)=>a-D.budget[i]);
+
+const SRC={labels:['Partner Referral','Email','Paid Ads','Website','Social Media','Other'],data:[30,26,20,14,7,3],colors:['#00505D','#0096CE','#E76E25','#366B98','#7BC3D0','#DCDCDC']};const ROI_T=[{lbl:'Tier 1',roi:340,c:'#E76E25'},{lbl:'Tier 2',roi:218,c:'#0096CE'},{lbl:'Tier 3',roi:145,c:'#7BC3D0'},{lbl:'Tier 4',roi:98,c:'#366B98'}];
+const TIER_EVENTS_MI={'Tier 1':[3,3,4,4,3,5,4,5,3,4,4,5],'Tier 2':[3,3,4,5,4,5,4,6,4,5,4,5],'Tier 3':[2,3,4,4,3,4,3,4,3,4,3,4],'Tier 4':[1,2,2,2,3,2,3,2,2,2,2,2]};
+const TIER_DIST={labels:['Tier 1','Tier 2','Tier 3','Tier 4'],data:[5,5,3,3],colors:['#E76E25','#0096CE','#7BC3D0','#366B98']};
+const TIER_COLORS=['#E76E25','#0096CE','#7BC3D0','#366B98'];
+const SPEND_TIERS=[{lbl:'Tier 1',budget:38,actual:36},{lbl:'Tier 2',budget:30,actual:32},{lbl:'Tier 3',budget:16,actual:14},{lbl:'Tier 4',budget:10,actual:8}];
+const GOALS_DATA=[
+  {lbl:'Relationship Building',ico:'🤝',val:72,target:80,cls:'gc-rel',pc:'#0096CE',ytdVal:72,ytdTarget:80},
+  {lbl:'Lead Generation',ico:'🎯',val:93,target:85,cls:'gc-lead',pc:'#E76E25',ytdVal:93,ytdTarget:85},
+];
+const COMM_LOG=[
+  {type:'Pre-Show Presentation',ico:'📊',bg:'rgba(0,80,93,.1)',note:'Tier 1 & 2 events — decks distributed to confirmed attendees 5 days prior'},
+  {type:'Pre-Show Presentation',ico:'📊',bg:'rgba(0,80,93,.1)',note:'Customer Advisory Board — customised agenda slides per participant'},
+  {type:'Logistics Document',ico:'📋',bg:'rgba(54,107,152,.1)',note:'Full logistics pack: venue, schedule, travel & hotel details sent to field team'},
+  {type:'Logistics Document',ico:'📋',bg:'rgba(54,107,152,.1)',note:'Trade show logistics — setup timeline, staffing, shipping labels'},
+  {type:'Pre-Show Presentation',ico:'📊',bg:'rgba(0,80,93,.1)',note:'VIP Client Dinner — personalised executive briefings per attendee account'},
+];
+const TRIPS=[
+  {name:'Executive Summit 2026',body:'C-suite contacts deepened. 3 strategic partnerships discussed. Strong brand perception.',sentiment:'Positive'},
+  {name:'Customer Advisory Board',body:'Deep relationship sessions with 9 key accounts. Product roadmap feedback shared with PM.',sentiment:'Positive'},
+  {name:'ABM Dinner',body:'5 target accounts attended. 2 moved to active opportunity stage within 2 weeks.',sentiment:'Positive'},
+  {name:'Community Networking Night',body:'Good energy, strong brand presence. Minimal direct pipeline; follow-up sequence launched.',sentiment:'Neutral'},
+];
+const POOL = [
+  {"abbr": "FLPCA", "name": "Florida Police Chief Mid-Winter Conference", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 4069.21, "actual": 6102.17, "variance": -2032.96, "mql": 7, "sql": 0, "opps": 0, "roi": 871.74, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jan 10, 2026", "endDate": "Jan 13, 2026", "monthIdx": 0, "sentiment": "Positive", "status": "Completed", "quarter": "Q1", "bu": "JusticeTrax", "notes": ""},
+  {"abbr": "BCACP/CACP NLC", "name": "BCACP/CACP National Leadership Conference", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 4320.0, "actual": 2697.23, "variance": 1622.77, "mql": 3, "sql": 0, "opps": 0, "roi": 899.08, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "Event and theme  The theme of the conference was Leadership and Integrity: Shaping the Next Generation of Policing. The conference highlighted contemporary strategies to address emerging trends in Law Enforcement. Key topics were organizational culture, sustainable approaches to leadership, Barriers to respect, Safe and healthy workplace culture, ethical leadership, trauma resilience.     Opening", "startDate": "Jan 18, 2026", "endDate": "Jan 20, 2026", "monthIdx": 0, "sentiment": "Positive", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "FLSA Winter", "name": "Florida Sheriffs Association Winter Conference", "tier": "Tier 4", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 0.0, "actual": 0.0, "variance": 0.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "", "commDate": "", "trip": "", "startDate": "Jan 25, 2026", "endDate": "Jan 28, 2026", "monthIdx": 0, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "AZACOP", "name": "Arizona Association of Chiefs of Police", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 2400.0, "actual": 3246.46, "variance": -846.46, "mql": 2, "sql": 0, "opps": 1, "roi": 1623.23, "comm": "Logistics Document", "commDate": "", "trip": "Between the very strong customer presence we have in the Phoenix Valley and the state funding in AZ for CommunityConnect I think it's critical we continue to be here.", "startDate": "Jan 27, 2026", "endDate": "Jan 29, 2026", "monthIdx": 0, "sentiment": "Positive", "status": "Completed", "quarter": "Q1", "bu": "Mindbase", "notes": ""},
+  {"abbr": "LEDA Phoenix", "name": "Law Enforcement Drone Association - Super Regional - Phoenix", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 5000.0, "actual": 5000.0, "variance": 0.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "We had a good amount of foot traffic. The lead capture tool was broke so that was difficult to maintain every lead but there was a good conversation and a very strong product fit.", "startDate": "Feb 04, 2026", "endDate": "Feb 06, 2026", "monthIdx": 1, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "MCSA Policy", "name": "Major County Sheriffs of America \u2013 Policy Conference - ASSOCIATION ONLY", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 0.0, "actual": 0.0, "variance": 0.0, "mql": 1, "sql": 0, "opps": 0, "roi": 0.0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "Great opportunity to have one-on-one conversations throughout the event. Each participant at the event engaged and had willingness to share information. Some were grateful for dinner conversations which will lead to follow up and future opportunities", "startDate": "Feb 05, 2026", "endDate": "Feb 07, 2026", "monthIdx": 1, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "MCCA Winter", "name": "Major Cities Chiefs Association \u2013 Winter Meeting - ASSOCIATION ONLY", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 0.0, "actual": 0.0, "variance": 0.0, "mql": 3, "sql": 0, "opps": 0, "roi": 0.0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "It is critical that the strategic team has a presence at every MCCA event. I think we should strongly consider having every MCCA and MCSA agency in the Strategic Teams name since they show up to these events several times a year.", "startDate": "Feb 09, 2026", "endDate": "Feb 11, 2026", "monthIdx": 1, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "AAFS", "name": "American Academy of Forensic Sciences", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 7647.18, "actual": 3480.39, "variance": 4166.79, "mql": 5, "sql": 1, "opps": 0, "roi": 696.08, "comm": "Logistics Document", "commDate": "", "trip": "We have attended AAFS 25+ years and should continue to attend. I think this conference is worthwhile, but I don't know if the exhibitor hall is the best place for us to produce sales leads. I would recommend sponsoring more of the early meetings (workshops, board meetings, etc) and/or providing hands-on demos and lectures. The first two days are full of workshops, which could be oriented toward ad", "startDate": "Feb 10, 2026", "endDate": "Feb 13, 2026", "monthIdx": 1, "sentiment": "Positive", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "LPC Gala", "name": "London Police Chief's Gala - Sponsorship Only", "tier": "Tier 4", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 15000.0, "actual": 11043.15, "variance": 3956.85, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "", "commDate": "", "trip": "", "startDate": "Feb 12, 2026", "endDate": "Feb 12, 2026", "monthIdx": 1, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "", "notes": "Sponsorship Only"},
+  {"abbr": "BCACP Winter", "name": "BC Association of Chiefs of Police Winter Conference", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 10800.0, "actual": 0, "variance": 10800.0, "mql": 1, "sql": 0, "opps": 0, "roi": 0.0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Feb 17, 2026", "endDate": "Feb 19, 2026", "monthIdx": 1, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "CACP ITS", "name": "CACP Information and Technology Summit", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 7200.0, "actual": 4658.94, "variance": 2541.06, "mql": 5, "sql": 0, "opps": 0, "roi": 931.79, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "Logistical support was superb.  I think a Platinum Sponsorship was the correct amount at minimum.  A bigger booth would have been better, so if that is possible next year that would be money well spent.", "startDate": "Feb 22, 2026", "endDate": "Feb 25, 2026", "monthIdx": 1, "sentiment": "Positive", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "FLOCON", "name": "Florida conference - DroneResponders", "tier": "Tier 3", "source": "New for 2026", "goal": "Lead Generation", "budget": 7000.0, "actual": 5000.0, "variance": 2000.0, "mql": 10, "sql": 0, "opps": 2, "roi": 500.0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Feb 24, 2026", "endDate": "Feb 26, 2026", "monthIdx": 1, "sentiment": "Positive", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "CALNENA", "name": "CALNENA Annual Conference 2026", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 12000.0, "actual": 0, "variance": 12000.0, "mql": 5, "sql": 0, "opps": 2, "roi": 0.0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "This is a solid regional show. We got very heavy waves of traffic all at the same time and had many conversations that we were just not able to capture, as the customers were lined up back to back. iCapture really helps with this so I valued having the app. It made me much more efficient and I still didn't capture all of the conversations I had. Having a separate room for demos was very helpful. I", "startDate": "Mar 02, 2026", "endDate": "Mar 04, 2026", "monthIdx": 2, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "IACP OSW", "name": "IACP Officer Safety and Wellness Conference", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 4705.33, "actual": 0, "variance": 4705.33, "mql": 6, "sql": 0, "opps": 2, "roi": 0.0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Mar 06, 2026", "endDate": "Mar 08, 2026", "monthIdx": 2, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "RPAS", "name": "Remotely Piloted Aircraft Systems in Australian Skies Conference", "tier": "Tier 4", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 15500.0, "actual": 5354.03, "variance": 10145.97, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "", "commDate": "", "trip": "", "startDate": "Mar 10, 2026", "endDate": "Mar 12, 2026", "monthIdx": 2, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "NACON", "name": "National DroneResponders Conference", "tier": "Tier 3", "source": "New for 2026", "goal": "Lead Generation", "budget": 7000.0, "actual": 0, "variance": 7000.0, "mql": 8, "sql": 0, "opps": 0, "roi": 0.0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Mar 10, 2026", "endDate": "Mar 11, 2026", "monthIdx": 2, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "CALEA Spring", "name": "CALEA Spring", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 4470.89, "actual": 0, "variance": 4470.89, "mql": 4, "sql": 0, "opps": 0, "roi": 0.0, "comm": "Logistics Document", "commDate": "", "trip": "Without a doubt, the CIMRS Report sign led to multiple conversations, including 2 of the leads in iCapture.   Part of this conference includes an evaluation panel for those agencies that are seeking their initial accreditation or reaccreditation. This is can be a very stressful process for them. It would be GREAT for Versaterm to handle some sort of celebratory/congratulations even for those agenc", "startDate": "Mar 11, 2026", "endDate": "Mar 15, 2026", "monthIdx": 2, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "IACP Midyear", "name": "IACP Division Midyear (State & Provincial, SACOP, Midsize)", "tier": "Tier 3", "source": "New for 2026", "goal": "Lead Generation", "budget": 0, "actual": 0, "variance": 0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Mar 11, 2026", "endDate": "Mar 13, 2026", "monthIdx": 2, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "BBG", "name": "Utah FOP Black & Blue Gala", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 5000.0, "actual": 5000.0, "variance": 0.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Mar 14, 2026", "endDate": "Mar 14, 2026", "monthIdx": 2, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": "Platinum Sponsorship"},
+  {"abbr": "SCLLE-LWABS", "name": "Summit for Civilian Leaders in Law Enforcement - Leading Without a Badge", "tier": "Tier 3", "source": "New for 2026", "goal": "Lead Generation", "budget": 0, "actual": 0, "variance": 0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Mar 15, 2026", "endDate": "Mar 18, 2026", "monthIdx": 2, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "UCOPA", "name": "Utah Chiefs of Police ", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 6352.27, "actual": 0, "variance": 6352.27, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Mar 23, 2026", "endDate": "Mar 25, 2026", "monthIdx": 2, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "SSFAPT", "name": "Safe Schools for Alex Pickleball Tournament", "tier": "Tier 4", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 2400.0, "actual": 2120.04, "variance": 279.96, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "", "commDate": "", "trip": "", "startDate": "Mar 26, 2026", "endDate": "Mar 26, 2026", "monthIdx": 2, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "FLNSSS", "name": "Florida National Summit on School Safety", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 6592.84, "actual": 0, "variance": 6592.84, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Mar 29, 2026", "endDate": "Apr 01, 2026", "monthIdx": 2, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "TXPSC", "name": "Texas Public Safety Conference", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 0, "actual": 0, "variance": 0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Mar 29, 2026", "endDate": "Apr 01, 2026", "monthIdx": 2, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "Mindbase", "notes": "Barry agreed to cut this event"},
+  {"abbr": "TXPCA", "name": "Texas Police Chief Assoc", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 39693.91, "actual": 0, "variance": 39693.91, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Mar 30, 2026", "endDate": "Apr 02, 2026", "monthIdx": 2, "sentiment": "Neutral", "status": "Completed", "quarter": "Q1", "bu": "", "notes": ""},
+  {"abbr": "APCO Western", "name": "APCO Western Regional Conference", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 3925.86, "actual": 0, "variance": 3925.86, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Apr 06, 2026", "endDate": "Apr 09, 2026", "monthIdx": 3, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "", "notes": ""},
+  {"abbr": "BODE", "name": "Bode\u00a0Technology\u00a0Forensic\u00a0DNA\u00a0Conference", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 4200.0, "actual": 0, "variance": 4200.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Apr 07, 2026", "endDate": "Apr 09, 2026", "monthIdx": 3, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "", "notes": ""},
+  {"abbr": "GACP Spring", "name": "Georgia Association of Chiefs of Police Spring Conference", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 2500.0, "actual": 0, "variance": 2500.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Apr 07, 2026", "endDate": "Apr 09, 2026", "monthIdx": 3, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "Mindbase", "notes": ""},
+  {"abbr": "MCCA CC", "name": "The Major Cities Chiefs Association Committee Conference - ASSOCIATION ONLY", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 0.0, "actual": 0, "variance": 0.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Apr 08, 2026", "endDate": "Apr 10, 2026", "monthIdx": 3, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "", "notes": ""},
+  {"abbr": "911 Directors Forum", "name": "911 Directors Forum", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 19200.0, "actual": 0, "variance": 19200.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Apr 13, 2026", "endDate": "Apr 15, 2026", "monthIdx": 3, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "", "notes": ""},
+  {"abbr": "MNCPA ETI LEE", "name": "MNCPA 2026 Executive Training Institute (ETI) & Law Enforecement Expo", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 2000.0, "actual": 0, "variance": 2000.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Apr 13, 2026", "endDate": "Apr 16, 2026", "monthIdx": 3, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "Versaterm", "notes": ""},
+  {"abbr": "CSDIAI", "name": "California IAI Division of International Assoc. for Identification", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 960.0, "actual": 0, "variance": 960.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Apr 14, 2026", "endDate": "Apr 14, 2026", "monthIdx": 3, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "", "notes": ""},
+  {"abbr": "PERF", "name": "PERF Annual Meeting - ASSOCIATION ONLY", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 0.0, "actual": 0, "variance": 0.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Apr 15, 2026", "endDate": "Apr 17, 2026", "monthIdx": 3, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "", "notes": ""},
+  {"abbr": "CAC", "name": "California Association of Criminalists", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 2000.0, "actual": 0, "variance": 2000.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Apr 28, 2026", "endDate": "May 01, 2026", "monthIdx": 3, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "School Safety", "notes": ""},
+  {"abbr": "NENA Ontario", "name": "NENA Ontario", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 5827.14, "actual": 0, "variance": 5827.14, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "May 04, 2026", "endDate": "May 08, 2026", "monthIdx": 4, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "", "notes": ""},
+  {"abbr": "AACP Spring", "name": "Alberta Association of Chiefs of Police Spring Conference - Reception (separate budget line in Associations)", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 7500.0, "actual": 0, "variance": 7500.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "May 11, 2026", "endDate": "May 13, 2026", "monthIdx": 4, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "", "notes": ""},
+  {"abbr": "WASPC", "name": "Washington State Association of Sheriffs and Chiefs of Police Conference", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 3000.0, "actual": 0, "variance": 3000.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "May 11, 2026", "endDate": "May 11, 2026", "monthIdx": 4, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "", "notes": ""},
+  {"abbr": "AUVSI Exponentials", "name": "Exponentials 2026", "tier": "Tier 3", "source": "New for 2026", "goal": "Lead Generation", "budget": 8500.0, "actual": 0, "variance": 8500.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "May 12, 2026", "endDate": "May 16, 2026", "monthIdx": 4, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "", "notes": ""},
+  {"abbr": "ORACP", "name": "Oregon Association of Chiefs of Police", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 3600.0, "actual": 0, "variance": 3600.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "May 12, 2026", "endDate": "May 15, 2026", "monthIdx": 4, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "CI Tech", "notes": ""},
+  {"abbr": "SACP Spring", "name": "Spring SACP Leadership Event & Mess Dinner", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 7200.0, "actual": 0, "variance": 7200.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "May 12, 2026", "endDate": "May 14, 2026", "monthIdx": 4, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "ICS", "notes": ""},
+  {"abbr": "ASCLD", "name": "American Society of Crime Laboratory Directors", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 107205.06, "actual": 0, "variance": 107205.06, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "May 18, 2026", "endDate": "May 21, 2026", "monthIdx": 4, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "Mindbase", "notes": ""},
+  {"abbr": "IACP Tech", "name": "IACP Technology Conference", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 6301.45, "actual": 0, "variance": 6301.45, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "May 19, 2026", "endDate": "May 21, 2026", "monthIdx": 4, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "JusticeTrax", "notes": ""},
+  {"abbr": "ADPQ", "name": "Association des directeurs de police de Qu\u00e9bec", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 6998.4, "actual": 0, "variance": 6998.4, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "May 26, 2026", "endDate": "May 28, 2026", "monthIdx": 4, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "ICS", "notes": ""},
+  {"abbr": "AFTE", "name": "Association of Firearm and Tool Mark Examiners", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 750.0, "actual": 0, "variance": 750.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "May 26, 2026", "endDate": "May 28, 2026", "monthIdx": 4, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "Versaterm", "notes": ""},
+  {"abbr": "ONACP", "name": "Ontario Assoc Chiefs of Police", "tier": "Tier 4", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 3000.0, "actual": 0, "variance": 3000.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "", "commDate": "", "trip": "", "startDate": "Jun 01, 2026", "endDate": "Jun 01, 2026", "monthIdx": 5, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "Versaterm", "notes": ""},
+  {"abbr": "TSDPCA", "name": "Texas School Dist Police Chief Assoc. ", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 2692.27, "actual": 0, "variance": 2692.27, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jun 07, 2026", "endDate": "Jun 11, 2026", "monthIdx": 5, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "Versaterm", "notes": ""},
+  {"abbr": "NSA Annual", "name": "National Sheriffs\u2019 Association Annual Conference", "tier": "Tier 3", "source": "New for 2026", "goal": "Lead Generation", "budget": 7500.0, "actual": 0, "variance": 7500.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jun 08, 2026", "endDate": "Jun 11, 2026", "monthIdx": 5, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "CI Tech", "notes": ""},
+  {"abbr": "IACLEA", "name": "International Association of Campus Law Enforcement Administrators Annual Conference", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 0, "actual": 0, "variance": 0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jun 25, 2026", "endDate": "Jun 28, 2026", "monthIdx": 5, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "Versaterm", "notes": ""},
+  {"abbr": "FBINAA National", "name": "FBINAA National Conference", "tier": "Tier 1", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 38652.34, "actual": 0, "variance": 38652.34, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Jun 27, 2026", "endDate": "Jun 30, 2026", "monthIdx": 5, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "Mindbase", "notes": ""},
+  {"abbr": "NENA", "name": "National Emergency Management Association Annual Conference", "tier": "Tier 1", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 80000.0, "actual": 0, "variance": 80000.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Jun 27, 2026", "endDate": "Jul 02, 2026", "monthIdx": 5, "sentiment": "Neutral", "status": "Completed", "quarter": "Q2", "bu": "Versaterm", "notes": ""},
+  {"abbr": "FLPCA", "name": "Florida Police Chief Summer Conference", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 5055.0, "actual": 0, "variance": 5055.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jul 06, 2026", "endDate": "Jul 10, 2026", "monthIdx": 6, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Versaterm", "notes": ""},
+  {"abbr": "AFCA/AFDA", "name": "Arizona Fire Chiefs Association Fire & EMS Leadership Conference & Expo", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 6000.0, "actual": 0, "variance": 6000.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jul 13, 2026", "endDate": "Jul 16, 2026", "monthIdx": 6, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Versaterm", "notes": ""},
+  {"abbr": "APSCON", "name": "The Airborned Public Safety Association Conference", "tier": "Tier 3", "source": "New for 2026", "goal": "Lead Generation", "budget": 10000.0, "actual": 0, "variance": 10000.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jul 13, 2026", "endDate": "Jul 17, 2026", "monthIdx": 6, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Komutel", "notes": ""},
+  {"abbr": "TSATC", "name": "Texas Sheriff Annual Training Conf", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 4590.86, "actual": 0, "variance": 4590.86, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jul 18, 2026", "endDate": "Jul 21, 2026", "monthIdx": 6, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Gov Affairs", "notes": ""},
+  {"abbr": "BTD", "name": "Be The Difference", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 1200.0, "actual": 0, "variance": 1200.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jul 19, 2026", "endDate": "Jul 22, 2026", "monthIdx": 6, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "ICS", "notes": ""},
+  {"abbr": "NADCP Rise", "name": "RISE26", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 33071.52, "actual": 0, "variance": 33071.52, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Jul 20, 2026", "endDate": "Jul 23, 2026", "monthIdx": 6, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "CI Tech", "notes": ""},
+  {"abbr": "NSSCE", "name": "National School Safety Conference", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 6190.5, "actual": 0, "variance": 6190.5, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Jul 20, 2026", "endDate": "Jul 24, 2026", "monthIdx": 6, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Versaterm", "notes": ""},
+  {"abbr": "NAGARA", "name": "National Association of Government Archives & Records Administrators ", "tier": "Tier 3", "source": "New for 2026", "goal": "Lead Generation", "budget": 4500.0, "actual": 0, "variance": 4500.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jul 21, 2026", "endDate": "Jul 24, 2026", "monthIdx": 6, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "", "notes": ""},
+  {"abbr": "TNACP", "name": "Tennessee Association of Chiefs of Police", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 4000.0, "actual": 0, "variance": 4000.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jul 21, 2026", "endDate": "Jul 24, 2026", "monthIdx": 6, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Versaterm", "notes": ""},
+  {"abbr": "CALEA Summer", "name": "CALEA Summer", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 4500.0, "actual": 0, "variance": 4500.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jul 22, 2026", "endDate": "Jul 25, 2026", "monthIdx": 6, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Mindbase", "notes": ""},
+  {"abbr": "NOBLE", "name": "NOBLE Annual Training Conference", "tier": "Tier 3", "source": "New for 2026", "goal": "Lead Generation", "budget": 7500.0, "actual": 0, "variance": 7500.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jul 24, 2026", "endDate": "Jul 28, 2026", "monthIdx": 6, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "", "notes": ""},
+  {"abbr": "FLSA Summer", "name": "Florida Sheriffs Association Summer", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 1200.0, "actual": 0, "variance": 1200.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Jul 26, 2026", "endDate": "Jul 29, 2026", "monthIdx": 6, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "", "notes": ""},
+  {"abbr": "APCO", "name": "APCO International", "tier": "Tier 1", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 102916.85, "actual": 0, "variance": 102916.85, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Aug 02, 2026", "endDate": "Aug 05, 2026", "monthIdx": 7, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Versaterm", "notes": ""},
+  {"abbr": "CACP Annual", "name": "Canadian Association of Chiefs of Police Annual Conference", "tier": "Tier 1", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 55955.63, "actual": 0, "variance": 55955.63, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Aug 16, 2026", "endDate": "Aug 18, 2026", "monthIdx": 7, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Versaterm", "notes": ""},
+  {"abbr": "IAI Educational", "name": "Annual IAI International Forensic Educational Conference", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 4813.16, "actual": 0, "variance": 4813.16, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Aug 16, 2026", "endDate": "Aug 22, 2026", "monthIdx": 7, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Versaterm", "notes": ""},
+  {"abbr": "ISFG", "name": "International Society for Forensic Genetics", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 5000.0, "actual": 0, "variance": 5000.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Aug 19, 2026", "endDate": "Aug 21, 2026", "monthIdx": 7, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "JusticeTrax", "notes": ""},
+  {"abbr": "COMM UAV", "name": "Commercial UAV", "tier": "Tier 3", "source": "New for 2026", "goal": "Lead Generation", "budget": 18000.0, "actual": 0, "variance": 18000.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Sep 01, 2026", "endDate": "Sep 03, 2026", "monthIdx": 8, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Versaterm", "notes": ""},
+  {"abbr": "CACLD", "name": "California Association of Crime Laboratory Directors", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 2500.0, "actual": 0, "variance": 2500.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Sep 15, 2026", "endDate": "Jun 16, 2026", "monthIdx": 8, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Versaterm", "notes": ""},
+  {"abbr": "NC/GA/TN/SC IAI", "name": "Combined Meeting of 4 State Divisions of the IAI", "tier": "Tier 3", "source": "New for 2026", "goal": "Lead Generation", "budget": 2500.0, "actual": 0, "variance": 2500.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Sep 15, 2026", "endDate": "Sep 17, 2026", "monthIdx": 8, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Mindbase", "notes": ""},
+  {"abbr": "GACP Fall", "name": "Georgia Association of Chiefs of Police Fall Conference", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 2500.0, "actual": 0, "variance": 2500.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Sep 21, 2026", "endDate": "Sep 24, 2026", "monthIdx": 8, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "Versaterm", "notes": ""},
+  {"abbr": "MCSA Annual", "name": "Major County Sheriffs of America \u2013 Annual Conference", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 0, "actual": 0, "variance": 0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Sep 21, 2026", "endDate": "Sep 23, 2026", "monthIdx": 8, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "JusticeTrax", "notes": ""},
+  {"abbr": "SOFT / TIAFT", "name": "Society of Forensic Toxicologists / The International Association of Forensic Toxicology", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 6200.0, "actual": 0, "variance": 6200.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Sep 22, 2026", "endDate": "Sep 24, 2026", "monthIdx": 8, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "", "notes": ""},
+  {"abbr": "NIAIA", "name": "National Internal Affairs Investigators Association", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 40000.0, "actual": 0, "variance": 40000.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Sep 27, 2026", "endDate": "Oct 01, 2026", "monthIdx": 8, "sentiment": "Neutral", "status": "Completed", "quarter": "Q3", "bu": "School Safety", "notes": ""},
+  {"abbr": "APCO OID", "name": "Officer's Installation Dinner - DONATION ONLY", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 5000.0, "actual": 0, "variance": 5000.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Oct 04, 2026", "endDate": "Oct 04, 2026", "monthIdx": 9, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "", "notes": ""},
+  {"abbr": "MAAFS / NEAFS", "name": "Mid-Atlantic and North-East Associations of Forensic Scientists Joint Meeting", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 2086.73, "actual": 0, "variance": 2086.73, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Oct 06, 2026", "endDate": "Oct 08, 2026", "monthIdx": 9, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "Versaterm", "notes": ""},
+  {"abbr": "SACP Fall", "name": "Fall SACP Presentations & Business Meeting", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 7200.0, "actual": 0, "variance": 7200.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Oct 06, 2026", "endDate": "Oct 08, 2026", "monthIdx": 9, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "", "notes": ""},
+  {"abbr": "AFQAM", "name": "Association of Forensic Quality Assurance Managers", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 3000.0, "actual": 0, "variance": 3000.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Oct 13, 2026", "endDate": "Oct 15, 2026", "monthIdx": 9, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "", "notes": ""},
+  {"abbr": "APCO Canada", "name": "APCO Canada", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 0, "actual": 0, "variance": 0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Oct 13, 2026", "endDate": "Oct 15, 2026", "monthIdx": 9, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "", "notes": "Ad hoc request - pending approval"},
+  {"abbr": "CalAPCO Fall", "name": "California APCO  Fall", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 2784.0, "actual": 0, "variance": 2784.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Oct 18, 2026", "endDate": "Oct 21, 2026", "monthIdx": 9, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "Versaterm", "notes": ""},
+  {"abbr": "MCCA Annual", "name": "Major Cities Chiefs Association \u2013 Annual Meeting - ASSOCIATION ONLY", "tier": "Tier 4", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 0, "actual": 0, "variance": 0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "", "commDate": "", "trip": "", "startDate": "Oct 21, 2026", "endDate": "Oct 23, 2026", "monthIdx": 9, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "CI Tech", "notes": "Association only"},
+  {"abbr": "ASCIA Fall", "name": "Association of State Criminal Investigative Agencies Fall Conference", "tier": "Tier 3", "source": "New for 2026", "goal": "Lead Generation", "budget": 0, "actual": 0, "variance": 0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Oct 22, 2026", "endDate": "Oct 24, 2026", "monthIdx": 9, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "VTM-VINE", "notes": "Ad hoc request - pending approval"},
+  {"abbr": "IACP", "name": "International Association of Chiefs of Police Annual Conference", "tier": "Tier 1", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 375455.5, "actual": 0, "variance": 375455.5, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Oct 24, 2026", "endDate": "Oct 27, 2026", "monthIdx": 9, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "Five Points", "notes": ""},
+  {"abbr": "FLSA ELCE", "name": "Florida Sheriffs Association Executive Leadership Conference & Exposition", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 750.0, "actual": 0, "variance": 750.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Oct 26, 2026", "endDate": "Oct 28, 2026", "monthIdx": 9, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "Versaterm", "notes": ""},
+  {"abbr": "Promega / ISHI", "name": "International Symposium on Human Identification", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 8803.68, "actual": 0, "variance": 8803.68, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Oct 27, 2026", "endDate": "Oct 29, 2026", "monthIdx": 9, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "", "notes": ""},
+  {"abbr": "BCACP Fall", "name": "BC Association of Chiefs of Police Fall Conference", "tier": "Tier 2", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 10800.0, "actual": 0, "variance": 10800.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Pre-Show Brief & Document", "commDate": "", "trip": "", "startDate": "Nov 03, 2026", "endDate": "Nov 05, 2026", "monthIdx": 10, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "", "notes": ""},
+  {"abbr": "AACP Fall", "name": "Alberta Association of Chiefs of Police Fall Conference - Reception + Table", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Relationship Building", "budget": 10800.0, "actual": 0, "variance": 10800.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Nov 23, 2026", "endDate": "Nov 25, 2026", "monthIdx": 10, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "Versaterm", "notes": ""},
+  {"abbr": "UoFS", "name": "Daigle Law Group Use of Force Summit", "tier": "Tier 3", "source": "Attended in 2025", "goal": "Lead Generation", "budget": 21006.0, "actual": 0, "variance": 21006.0, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "Logistics Document", "commDate": "", "trip": "", "startDate": "Dec 01, 2026", "endDate": "Dec 01, 2026", "monthIdx": 11, "sentiment": "Neutral", "status": "Completed", "quarter": "Q4", "bu": "", "notes": ""},
+  {"abbr": "MHPS", "name": "Medicine Hat Police Service Regimental Dinner", "tier": "Tier 4", "source": "New for 2026", "goal": "Lead Generation", "budget": 0, "actual": 3657.87, "variance": -3657.87, "mql": 0, "sql": 0, "opps": 0, "roi": 0, "comm": "", "commDate": "", "trip": "", "startDate": "", "endDate": "", "monthIdx": 3, "sentiment": "Neutral", "status": "Completed", "quarter": "", "bu": "", "notes": "5000 CAD converted to USD"}
+];
+/* Immutable snapshot of the original baked-in data — used by Reset to Original */
+const POOL_ORIGINAL = POOL.map(e => ({...e}));
+
+/* Demo mode events are generated per-month by genEvents(mi) */
+
+/* ══ SAFE DOM HELPERS ══ */
+const $s=id=>document.getElementById(id);
+const setText=(id,v)=>{const e=$s(id);if(e)e.textContent=v;};
+const setHTML=(id,v)=>{const e=$s(id);if(e)e.innerHTML=v;};
+const setStyle=(id,prop,v)=>{const e=$s(id);if(e)e.style[prop]=v;};
+
+/* ══ CHART INSTANCES ══ */
+let charts={};
+const FONT={family:"'Aptos','Calibri',sans-serif",size:11};
+const TC='#366B98';
+let curMonth=0;
+let curEvents=[];
+const MONTH_EVENTS = new Map(); /* month index → events array, single source of truth */
+let HAS_SPREADSHEET = true;
+
+
+/* ══ UTILS ══ */
+const sum=arr=>arr.reduce((a,b)=>a+b,0);
+function delta(arr,i){
+  if(i===0)return{txt:'First month',cls:'neu'};
+  const d=arr[i]-arr[i-1];const p=((d/arr[i-1])*100).toFixed(1);
+  return{txt:(d>=0?'▲ ':'▼ ')+Math.abs(p)+'% vs prior month',cls:d>=0?'up':'dn'};
+}
+function deltaAbs(arr,i,pfx='$',sfx='K'){
+  if(i===0)return{txt:'First month',cls:'neu'};
+  const d=arr[i]-arr[i-1];
+  return{txt:(d>=0?'▲ ':'▼ ')+pfx+Math.abs(d)+sfx+' vs prior',cls:d>=0?'up':'dn'};
+}
+function setKPI(prefix,idx,val,display,deltaObj){
+  const elId=(prefix==='k'?'kv':prefix==='y'?'yk':prefix+'k')+idx;
+  const el=document.getElementById(elId);
+  if(el) el.textContent=display;
+  const del=document.getElementById((prefix==='k'?'kd':prefix==='y'?'yd':prefix+'d')+idx);
+  if(del){del.textContent=deltaObj?deltaObj.txt:'';if(deltaObj)del.className='kpi-dl '+deltaObj.cls;}
+}
+function tierScoreHTML(tiers,mi,isYTD){
+  const classes=['ts1','ts2','ts3','ts4'];
+  return tiers.map((t,k)=>{
+    let ev,mql,sql,opp;
+    if(isYTD){ev=sum(TIER_EVENTS_MI[t]);mql=Math.round(sum(D.mql)*ev/sum(D.events));sql=Math.round(sum(D.sql)*ev/sum(D.events));opp=Math.round(sum(D.opps)*ev/sum(D.events));}
+    else{ev=TIER_EVENTS_MI[t][mi];mql=Math.round(D.mql[mi]*ev/D.events[mi]);sql=Math.round(D.sql[mi]*ev/D.events[mi]);opp=Math.round(D.opps[mi]*ev/D.events[mi]);}
+    return`<div class="ts ${classes[k]}"><div class="ts-lbl">${t}</div><div class="ts-events">${ev} <span style="font-size:13px;font-weight:400;color:var(--muted)">${isYTD?'YTD events':'events'}</span></div><div class="ts-detail">${mql} MQL &nbsp;·&nbsp; ${sql} SQL &nbsp;·&nbsp; ${opp} Opp</div><div class="ts-roi">ROI: ${ROI_T[k].roi>0?'$'+ROI_T[k].roi.toLocaleString():'—'}</div></div>`;
+  }).join('');
+}
+function tierScoreHTMLFromEvents(tiers, events){
+  const classes=['ts1','ts2','ts3','ts4'];
+  return tiers.map((t,k)=>{
+    const te = (events || []).filter(e => e && e.tier === t);
+    const ev = te.length;
+    const mql = te.reduce((s,e)=>s+(Number(e.mql)||0),0);
+    const sql = te.reduce((s,e)=>s+(Number(e.sql)||0),0);
+    const opp = te.reduce((s,e)=>s+(Number(e.opps)||0),0);
+    const roiVals = te.map(e=>Number(e.roi)||0).filter(v=>v!==0);
+    const avgRoi = roiVals.length ? Math.round(roiVals.reduce((a,b)=>a+b,0)/roiVals.length) : 0;
+    return`<div class="ts ${classes[k]}"><div class="ts-lbl">${t}</div><div class="ts-events">${ev} <span style="font-size:13px;font-weight:400;color:var(--muted)">events</span></div><div class="ts-detail">${mql} MQL &nbsp;·&nbsp; ${sql} SQL &nbsp;·&nbsp; ${opp} Opp</div><div class="ts-roi">ROI: ${avgRoi>0?'$'+avgRoi.toLocaleString():'—'}</div></div>`;
+  }).join('');
+}
+function goalHTML(isYTD,prefix){
+  const duo=document.getElementById(prefix+'GoalDuo');
+  /* Clear the progs element — no measurement bars */
+  const progs=document.getElementById(prefix+'GoalProgs');
+  if(progs) progs.innerHTML='';
+  if(!duo)return;
+  duo.innerHTML=GOALS_DATA.map(g=>{
+    const v=isYTD?g.ytdVal:g.val;
+    return`<div class="goal-card ${g.cls}"><div class="gc-icon">${g.ico}</div><div class="gc-lbl">${g.lbl}</div><div class="gc-val">${v}</div><div class="gc-sub">events</div></div>`;
+  }).join('');
+}
+function spendHTML(mi){
+  const max=Math.max(...SPEND_TIERS.map(s=>Math.max(s.budget,s.actual)));
+  return SPEND_TIERS.map(s=>{
+    const bp=(s.budget/max*100).toFixed(0);const ap=(s.actual/max*100).toFixed(0);
+    const diff=s.actual-s.budget;const dc=diff>0?'cr':'cg';const ds=diff>0?'+':'';
+    return`<div class="spend-item"><div class="spend-hdr"><span class="spend-tier">${s.lbl}</span><span class="${dc}" style="font-size:11px;font-weight:700">${ds}$${Math.abs(diff)}K</span></div><div class="track-row"><span class="track-lbl">Budgeted (USD)</span><div class="track-bar"><div class="track-fill" style="width:${bp}%;background:var(--c2)"></div></div><span class="track-val">$${s.budget}K</span></div><div class="track-row"><span class="track-lbl">Actuals (USD)</span><div class="track-bar"><div class="track-fill" style="width:${ap}%;background:var(--c5)"></div></div><span class="track-val">$${s.actual}K</span></div></div>`;
+  }).join('');
+}
+function srcLegHTML(elId){
+  document.getElementById(elId).innerHTML=SRC.labels.map((l,i)=>`<div class="dleg-row"><div class="dleg-dot" style="background:${SRC.colors[i]}"></div><span>${l}</span><span class="dleg-pct">${SRC.data[i]}%</span></div>`).join('');
+}
+function tierLegHTML(elId,mi){
+  document.getElementById(elId).innerHTML=['Tier 1','Tier 2','Tier 3','Tier 4'].map((t,i)=>`<div class="dleg-row"><div class="dleg-dot" style="background:${TIER_COLORS[i]}"></div><span>${t}</span><span class="dleg-pct">${TIER_EVENTS_MI[t][mi]} events</span></div>`).join('');
+}
+
+/* ══ YTD PAGE ══ */
+function renderYTD(){
+  if (!HAS_SPREADSHEET) {
+    // Empty state: avoid using seeded demo data before a spreadsheet is uploaded.
+    destroyChart('ytdFunnelChart');
+    destroyChart('ytdSpendChart');
+    destroyChart('ytdSrcChart');
+    destroyChart('ytdTierMonthChart');
+    destroyChart('ytdROIChart');
+    setText('ytd-total-events','—');
+    setText('ytd-total-mql','—');
+    setText('ytd-total-opps','—');
+    setText('ytd-total-rev','—');
+    // KPIs
+    ['yk0','yk1','yk2','yk3','yk4','yk5','yk6','yk7'].forEach(id=>setText(id,'—'));
+    setHTML('ytdTierGrid', '<div style="padding:18px;color:var(--muted);font-size:13px">Upload the source spreadsheet to populate YTD reporting.</div>');
+    // Goals + ROI rows
+    setHTML('ytdGoalDuo', '');
+    setHTML('ytdGoalProgs', '');
+    setHTML('ytdSrcLeg', '');
+    const tbody=document.getElementById('ytdSummaryBody');
+    if (tbody) tbody.innerHTML='';
+    return;
+  }
+  const totEvents=sum(D.events),totMQL=sum(D.mql),totSQL=sum(D.sql),totOpps=sum(D.opps);
+  /* Only include months that have actual spend data in variance calculation */
+  const totActual=sum(D.actual);
+  const totBudget=D.budget.reduce((s,b,i)=>s+(D.actual[i]>0?b:0),0);
+  const totVar=D.variance.reduce((s,v,i)=>s+(D.actual[i]>0?v:0),0);
+  const avgROI=Math.round(sum(D.roi)/Math.max(D.roi.filter(r=>r>0).length,1));
+
+  // Hero
+  setText('ytd-total-events', totEvents);
+  setText('ytd-total-mql', totMQL.toLocaleString());
+  setText('ytd-total-opps', totOpps);
+  setText('ytd-total-rev', '$'+totActual.toLocaleString());
+
+  // KPIs
+  setKPI('y',0,totEvents,totEvents,'');
+  setKPI('y',1,totMQL,totMQL.toLocaleString(),'');
+  setKPI('y',2,totSQL,totSQL.toLocaleString(),'');
+  setKPI('y',3,totOpps,totOpps,'');
+  setKPI('y',4,totBudget,totActual>0?'$'+totBudget.toLocaleString():'—','');
+  setKPI('y',5,totActual,'$'+totActual.toLocaleString(),'');
+  setKPI('y',6,avgROI,'$'+avgROI.toLocaleString(),'');
+  const varSign=totVar>=0?'+':'';
+  setText('yk7', totActual>0 ? varSign+'$'+Math.abs(totVar).toLocaleString() : '—');
+  setStyle('yk7','color',totActual>0?(totVar<=0?'var(--c2)':'var(--c8)'):'var(--muted)');
+  ['yd0','yd1','yd2','yd3','yd4','yd5','yd6','yd7'].forEach(id=>{const el=$s(id);if(el){el.textContent='Full year aggregate';el.className='kpi-dl neu';}});
+
+  // Tier scorecard
+  setHTML('ytdTierGrid', tierScoreHTML(['Tier 1','Tier 2','Tier 3','Tier 4'],null,true));
+
+  // Goals
+  goalHTML(true,'ytd');
+
+  // Source legend
+  srcLegHTML('ytdSrcLeg');
+
+  // Summary table
+  const tbody=document.getElementById('ytdSummaryBody');
+  const realMonth = new Date().getMonth(); /* 0-11 based on actual calendar date */
+  tbody.innerHTML=MO.map((m,i)=>{
+    const v=D.variance[i];const vc=v>=0?'cr':'cg';const vs=v>=0?'+':'';
+    const isActive=i===realMonth;
+    return`<tr data-month="${i}" style="cursor:pointer;${isActive?'background:rgba(0,150,206,.06);font-weight:600':''}">
+      <td style="font-weight:700;color:var(--text)">${m} ${isActive?'<span style="font-size:10px;background:var(--c5);color:#fff;padding:1px 7px;border-radius:10px;margin-left:4px;font-weight:600">current</span>':''}</td>
+      <td class="num">${D.events[i]}</td>
+      <td class="num cb">${D.mql[i]}</td>
+      <td class="num">${D.sql[i]}</td>
+      <td class="num cg">${D.opps[i]}</td>
+      <td class="num">${D.actual[i]>0?'$'+D.budget[i].toLocaleString():'—'}</td>
+      <td class="num">${D.actual[i]>0?'$'+D.actual[i].toLocaleString():'—'}</td>
+      <td class="num ${vc}">${D.actual[i]>0?vs+'$'+Math.abs(v).toLocaleString():'—'}</td>
+      <td class="num co">${D.roi[i]>0?'$'+D.roi[i].toLocaleString():'—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Charts
+  destroyChart('ytdFunnelChart');
+  {const _cv=(document.getElementById('ytdFunnelChart'));if(_cv)charts.ytdFunnel=MiniCharts.create(_cv,{type:'bar',data:{labels:MO.map(m=>m.slice(0,3)),datasets:[{label:'MQLs',data:D.mql,backgroundColor:'#0096CE',borderRadius:4},{label:'SQLs',data:D.sql,backgroundColor:'#366B98',borderRadius:4},{label:'Opps',data:D.opps,backgroundColor:'#E76E25',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:FONT,color:TC,boxWidth:10,boxHeight:10,padding:12}},tooltip:{titleFont:FONT,bodyFont:FONT}},scales:{x:{ticks:{font:FONT,color:TC,autoSkip:false},grid:{color:'rgba(0,0,0,.04)'}},y:{ticks:{font:FONT,color:TC},grid:{color:'rgba(0,0,0,.05)'}}}}});}
+
+  destroyChart('ytdSpendChart');
+  const spendActualFiltered=D.actual.map(v=>v>0?v:null);
+  const spendBudgetFiltered=D.budget.map(v=>v>0?v:null);
+  {const _cv=(document.getElementById('ytdSpendChart'));if(_cv)charts.ytdSpend=MiniCharts.create(_cv,{type:'line',data:{labels:MO.map(m=>m.slice(0,3)),datasets:[{label:'Budgeted (USD)',data:spendBudgetFiltered,borderColor:'rgba(0,80,93,.6)',backgroundColor:'transparent',borderWidth:1.5,borderDash:[6,4],pointRadius:2,pointBackgroundColor:'rgba(0,80,93,.6)',tension:.4,fill:false,order:2,spanGaps:true},{label:'Actuals (USD)',data:spendActualFiltered,borderColor:'#E76E25',backgroundColor:'transparent',borderWidth:3,pointRadius:5,pointBackgroundColor:'#E76E25',pointBorderColor:'#fff',pointBorderWidth:2,tension:.4,fill:false,order:1,spanGaps:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:FONT,color:TC,boxWidth:10,boxHeight:10,padding:12}},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>ctx.dataset.label+': $'+Number(ctx.parsed.y).toLocaleString()}}},scales:{x:{ticks:{font:FONT,color:TC,autoSkip:false},grid:{color:'rgba(0,0,0,.04)'}},y:{ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()},grid:{color:'rgba(0,0,0,.05)'}}}}});}
+
+  destroyChart('ytdSrcChart');
+  {const _cv=(document.getElementById('ytdSrcChart'));if(_cv)charts.ytdSrc=MiniCharts.create(_cv,{type:'doughnut',data:{labels:SRC.labels,datasets:[{data:SRC.data,backgroundColor:SRC.colors,borderWidth:0,hoverOffset:5}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT}}}});}
+
+  destroyChart('ytdTierMonthChart');
+  {const _cv=document.getElementById('ytdTierMonthChart'); if(_cv) charts.ytdTierMonth=MiniCharts.create(_cv,{_stacked:true,
+    type:'bar',
+    data:{
+      labels:MO.map(m=>m.slice(0,3)),
+      datasets:[
+        {label:'Tier 1',data:TIER_EVENTS_MI['Tier 1'],backgroundColor:'#E76E25',borderRadius:3,stack:'s'},
+        {label:'Tier 2',data:TIER_EVENTS_MI['Tier 2'],backgroundColor:'#0096CE',borderRadius:3,stack:'s'},
+        {label:'Tier 3',data:TIER_EVENTS_MI['Tier 3'],backgroundColor:'#7BC3D0',borderRadius:3,stack:'s'},
+        {label:'Tier 4',data:TIER_EVENTS_MI['Tier 4'],backgroundColor:'#366B98',borderRadius:3,stack:'s'},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{font:FONT,color:TC,boxWidth:10,boxHeight:10,padding:10}},tooltip:{titleFont:FONT,bodyFont:FONT}},
+      scales:{
+        x:{ticks:{font:FONT,color:TC,autoSkip:false},grid:{color:'rgba(0,0,0,.04)'},stacked:true},
+        y:{ticks:{font:FONT,color:TC,precision:0},grid:{color:'rgba(0,0,0,.05)'},stacked:true}
+      }
+    }
+  });}
+
+  destroyChart('ytdROIChart');
+  {const _cv=(document.getElementById('ytdROIChart'));if(_cv)charts.ytdROI=MiniCharts.create(_cv,{type:'bar',data:{labels:ROI_T.map(r=>r.lbl),datasets:[{data:ROI_T.map(r=>r.roi),backgroundColor:ROI_T.map(r=>r.c),borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>'$'+ctx.parsed.x.toLocaleString()}}},scales:{x:{ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()},grid:{color:'rgba(0,0,0,.05)'}},y:{reverse:true,ticks:{font:FONT,color:TC},grid:{display:false}}}}});}
+}
+
+/* ══ MONTHLY PAGE ══ */
+function renderMonthly(mi_raw){
+  const mi = Number(mi_raw);
+  curMonth = mi;
+
+  /* ── Sync month strip active state ── */
+  document.querySelectorAll('.m-btn').forEach(b => b.classList.remove('active'));
+  const activeBtn = document.querySelector(`[data-m="${mi}"]`);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  /* ── Labels ── */
+  const moLabel = MO[mi] + ' 2026';
+  setText('kpiLbl',       moLabel);
+  setText('tierLbl',      moLabel);
+  setText('tierScoreLbl', moLabel);
+  setText('tableLbl',     moLabel);
+  setText('tableLblInner',moLabel);
+  setText('commLbl',      moLabel);
+  setText('tierDistLbl',  MO[mi]);
+
+  /* ── No spreadsheet: show upload prompt everywhere, no stale data ── */
+  if (!HAS_SPREADSHEET) {
+    ['kv0','kv1','kv2','kv3','kv4','kv5','kv6','kv7',
+     'kd0','kd1','kd2','kd3','kd4','kd5','kd6','kd7'].forEach(id=>setText(id,'—'));
+    const msg = `<div style="padding:22px;color:var(--muted);font-size:13px;text-align:center">Upload the source spreadsheet to populate ${MO[mi]} reporting.</div>`;
+    setHTML('mTierGrid',  msg);
+    setHTML('mSpendList', '');
+    setHTML('mGoalDuo',   '');
+    setHTML('mGoalProgs', '');
+    setHTML('mROIRows',   '');
+    setHTML('mSrcLeg',    '');
+    setHTML('mTierLeg',   '');
+    setHTML('mCommList',  msg);
+    setHTML('mTripGrid',  msg);
+    setHTML('evtBody',    '');
+    ['mFunnelChart','mSrcChart','mROIChart','mTierChart'].forEach(destroyChart);
+    return;
+  }
+
+  /* ══════════════════════════════════════════════════
+     SINGLE SOURCE OF TRUTH: all widgets read from mEvents
+     Use MONTH_EVENTS map (built by bootstrapFromPool) — falls back
+     to POOL filter if map entry missing.
+  ══════════════════════════════════════════════════ */
+  const mEvents = MONTH_EVENTS.has(mi) ? MONTH_EVENTS.get(mi) : POOL.filter(e => Number(e.monthIdx) === mi);
+
+  /* ── Aggregate totals directly from mEvents ── */
+  const totEvents  = mEvents.length;
+  const totMQL     = mEvents.reduce((s,e)=>s+(Number(e.mql)||0),0);
+  const totSQL     = mEvents.reduce((s,e)=>s+(Number(e.sql)||0),0);
+  const totOpps    = mEvents.reduce((s,e)=>s+(Number(e.opps)||0),0);
+  const totBudget  = mEvents.reduce((s,e)=>s+(Number(e.budget)||0),0);
+  const totActual  = mEvents.reduce((s,e)=>s+(Number(e.actual)||0),0);
+  const totVar     = totActual - totBudget;
+  const roiVals    = mEvents.map(e=>Number(e.roi)||0).filter(v=>v>0);
+  const avgROI     = roiVals.length ? Math.round(roiVals.reduce((a,b)=>a+b,0)/roiVals.length) : 0;
+
+  /* ── KPIs ── */
+  const prevMi = mi > 0 ? mi-1 : null;
+  const prevEvents = prevMi !== null ? POOL.filter(e => Number(e.monthIdx) === prevMi) : [];
+  function momDelta(cur, prev, isMoney) {
+    if (prevMi === null) return {txt:'First month', cls:'neu'};
+    const d = cur - prev;
+    const pct = prev !== 0 ? ((d/prev)*100).toFixed(1) : '—';
+    const arrow = d >= 0 ? '▲ ' : '▼ ';
+    const txt = isMoney
+      ? arrow + '$' + Math.abs(d).toLocaleString() + ' vs prior'
+      : arrow + Math.abs(pct) + '% vs prior month';
+    return {txt, cls: d >= 0 ? 'up' : 'dn'};
+  }
+  const prevMQL    = prevEvents.reduce((s,e)=>s+(Number(e.mql)||0),0);
+  const prevSQL    = prevEvents.reduce((s,e)=>s+(Number(e.sql)||0),0);
+  const prevOpps   = prevEvents.reduce((s,e)=>s+(Number(e.opps)||0),0);
+  const prevBudget = prevEvents.reduce((s,e)=>s+(Number(e.budget)||0),0);
+  const prevActual = prevEvents.reduce((s,e)=>s+(Number(e.actual)||0),0);
+  const prevROIv   = prevEvents.map(e=>Number(e.roi)||0).filter(v=>v>0);
+  const prevROI    = prevROIv.length ? Math.round(prevROIv.reduce((a,b)=>a+b,0)/prevROIv.length) : 0;
+
+  setKPI('k',0,totEvents, totEvents,                     momDelta(totEvents, prevEvents.length, false));
+  setKPI('k',1,totMQL,    totMQL.toLocaleString(),        momDelta(totMQL,    prevMQL,   false));
+  setKPI('k',2,totSQL,    totSQL.toLocaleString(),        momDelta(totSQL,    prevSQL,   false));
+  setKPI('k',3,totOpps,   totOpps.toLocaleString(),       momDelta(totOpps,   prevOpps,  false));
+  setKPI('k',4,totBudget, '$'+totBudget.toLocaleString(), momDelta(totBudget, prevBudget,true));
+  setKPI('k',5,totActual, '$'+totActual.toLocaleString(), momDelta(totActual, prevActual,true));
+  setKPI('k',6,avgROI,    avgROI>0?'$'+avgROI.toLocaleString():'—', momDelta(avgROI, prevROI, false));
+  const varSign = totVar >= 0 ? '+' : '';
+  setText('kv7', '$' + Math.abs(totVar).toLocaleString());
+  setStyle('kv7','color', totVar <= 0 ? 'var(--c2)' : 'var(--c8)');
+  const kd7 = $s('kd7');
+  if(kd7){ kd7.textContent = varSign+'$'+Math.abs(totVar).toLocaleString()+' vs budget'; kd7.className='kpi-dl '+(totVar<=0?'up':'dn'); }
+
+  /* ── Tier Scorecard — from mEvents ── */
+  setHTML('mTierGrid', tierScoreHTMLFromEvents(['Tier 1','Tier 2','Tier 3','Tier 4'], mEvents));
+
+  /* ── Variance panel — budget vs actual per tier, from mEvents ── */
+  const TIERS = ['Tier 1','Tier 2','Tier 3','Tier 4'];
+  const spendMap = {};
+  TIERS.forEach(t => { spendMap[t] = {b:0, a:0, n:0}; });
+  mEvents.forEach(e => {
+    if(spendMap[e.tier]) {
+      spendMap[e.tier].b += Number(e.budget)||0;
+      spendMap[e.tier].a += Number(e.actual)||0;
+      spendMap[e.tier].n++;
+    }
+  });
+  const spendRows = TIERS.map(t => ({lbl:t, budget:spendMap[t].b, actual:spendMap[t].a, n:spendMap[t].n}))
+                        .filter(s => s.n > 0);
+  const maxBudget = Math.max(...spendRows.map(s => Math.max(s.budget, s.actual)), 1);
+  setHTML('mSpendList', spendRows.length ? spendRows.map(s => {
+    const hasActual = s.actual > 0;
+    const diff = s.actual - s.budget;
+    const diffColor = diff > 0 ? 'var(--c8)' : 'var(--c2)';
+    const diffSign  = diff >= 0 ? '+' : '';
+    const budgetPct = Math.round(s.budget / maxBudget * 100);
+    const actualPct = Math.round(s.actual / maxBudget * 100);
+    return `<div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
+        <span style="font-weight:700;font-size:12px;color:var(--text)">${s.lbl}</span>
+        <span style="font-size:10px;color:var(--muted)">${s.n} event${s.n!==1?'s':''}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+        <span style="font-size:10px;color:var(--muted);width:46px;flex-shrink:0">Budget</span>
+        <div style="flex:1;height:8px;background:var(--c7);border-radius:4px;overflow:hidden">
+          <div style="height:100%;border-radius:4px;background:rgba(0,80,93,.35);width:${budgetPct}%"></div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:var(--text);width:80px;text-align:right">$${Math.round(s.budget).toLocaleString()}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+        <span style="font-size:10px;color:var(--muted);width:46px;flex-shrink:0">Actual</span>
+        <div style="flex:1;height:8px;background:var(--c7);border-radius:4px;overflow:hidden">
+          <div style="height:100%;border-radius:4px;background:${hasActual?'var(--c8)':'var(--c7)'};width:${actualPct}%"></div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${hasActual?'var(--text)':'var(--muted)'};width:80px;text-align:right">${hasActual?'$'+Math.round(s.actual).toLocaleString():'—'}</span>
+      </div>
+      ${hasActual ? `<div style="text-align:right;font-size:10px;font-weight:700;color:${diffColor};margin-top:1px">${diffSign}$${Math.abs(Math.round(diff)).toLocaleString()} vs budget</div>` : `<div style="text-align:right;font-size:10px;color:var(--muted);margin-top:1px;font-style:italic">no actuals recorded</div>`}
+    </div>`;
+  }).join('') : `<div style="font-size:12px;color:var(--muted);padding:8px 0">No events for ${MO[mi]}.</div>`);
+
+  /* ���─ Goals — from mEvents ── */
+  const goalCount = {'Relationship Building':0,'Lead Generation':0};
+  mEvents.forEach(e => { if(e.goal in goalCount) goalCount[e.goal]++; });
+  const totalGoalEvents = Object.values(goalCount).reduce((a,b)=>a+b,0);
+  setHTML('mGoalDuo', [
+    {lbl:'Relationship Building', ico:'🤝', cls:'gc-rel'},
+    {lbl:'Lead Generation',       ico:'🎯', cls:'gc-lead'}
+  ].map(g => {
+    const cnt = goalCount[g.lbl]||0;
+    const pct = totalGoalEvents ? Math.round(cnt/totalGoalEvents*100) : 0;
+    return `<div class="goal-card ${g.cls}">
+      <div class="gc-icon">${g.ico}</div>
+      <div class="gc-lbl">${g.lbl}</div>
+      <div class="gc-val">${cnt}</div>
+      <div class="gc-sub">${pct}% of month</div>
+    </div>`;
+  }).join(''));
+  setHTML('mGoalProgs','');
+
+  /* ══════════════════════════════════════════════════
+     THREE CHARTS — each builds labels + data + colors
+     in one place, then passes the SAME arrays to both
+     the chart renderer AND the legend/key HTML.
+  ══════════════════════════════════════════════════ */
+
+  /* ── 1. EVENT ORIGIN (donut + legend) ── */
+  const srcPalette = ['#00505D','#0096CE','#E76E25','#366B98','#7BC3D0','#DCDCDC'];
+  const srcCountMap = {};
+  mEvents.forEach(e => { const s = e.source||'Other'; srcCountMap[s] = (srcCountMap[s]||0)+1; });
+  const srcEntries = Object.entries(srcCountMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const srcTotal   = srcEntries.reduce((s,[,v])=>s+v, 0) || 1;
+  /* Build parallel arrays — index k is consistent across chart and legend */
+  const srcLabels = srcEntries.map(([l])=>l);
+  const srcCounts = srcEntries.map(([,v])=>v);   /* raw counts → chart uses these for arc sizes */
+  const srcPcts   = srcEntries.map(([,v])=>Math.round(v/srcTotal*100)); /* % → legend display */
+  const srcColors = srcPalette.slice(0, srcLabels.length);
+  /* Legend: same index order as chart */
+  setHTML('mSrcLeg', srcLabels.length
+    ? srcLabels.map((l,k)=>`<div class="dleg-row"><div class="dleg-dot" style="background:${srcColors[k]}"></div><span>${l}</span><span class="dleg-pct">${srcPcts[k]}%</span></div>`).join('')
+    : '<div style="font-size:12px;color:var(--muted)">No source data.</div>');
+  /* Chart: same labels, same raw counts, same colors */
+  destroyChart('mSrcChart');
+  if(srcLabels.length){
+    const _cvSrc = $s('mSrcChart');
+    if(_cvSrc) charts.mSrc = MiniCharts.create(_cvSrc,{
+      type:'doughnut',
+      data:{ labels:srcLabels, datasets:[{data:srcCounts, backgroundColor:srcColors, borderWidth:0, hoverOffset:5}] },
+      options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+        plugins:{legend:{display:false},
+          tooltip:{titleFont:FONT,bodyFont:FONT,
+            callbacks:{label:ctx=>`${ctx.label}: ${srcPcts[ctx.dataIndex]}%`}}}}
+    });
+  }
+
+  /* ── 2. ROI BY TIER (horizontal bar + key rows) ── */
+  const roiColors = ['#E76E25','#0096CE','#7BC3D0','#366B98']; /* Tier 1→4 */
+  const roiByTier = {};
+  TIERS.forEach(t => { roiByTier[t] = []; });
+  mEvents.forEach(e => { if(roiByTier[e.tier] && (Number(e.roi)||0)>0) roiByTier[e.tier].push(Number(e.roi)); });
+  /* Build parallel arrays — index k is consistent across chart bars and key rows */
+  const roiLabels = TIERS;
+  const roiAvgs   = TIERS.map(t => roiByTier[t].length ? Math.round(roiByTier[t].reduce((a,b)=>a+b,0)/roiByTier[t].length) : 0);
+  const roiHas    = TIERS.map(t => roiByTier[t].length > 0);
+  /* Key rows rendered top-to-bottom: Tier 1, Tier 2, Tier 3, Tier 4 */
+  setHTML('mROIRows', TIERS.map((t,k)=>
+    `<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:2px 0">
+       <span style="display:flex;align-items:center;gap:7px">
+         <span style="width:9px;height:9px;border-radius:2px;background:${roiColors[k]};display:inline-block;flex-shrink:0"></span>
+         ${t}
+       </span>
+       <span style="font-weight:700;color:var(--text)">${roiHas[k] ? '$'+roiAvgs[k].toLocaleString() : '—'}</span>
+     </div>`).join(''));
+  /* Chart: indexAxis:'y' with reverse:true renders index 0 at top — matches key row order */
+  destroyChart('mROIChart');
+  {const _cvROI=$s('mROIChart'); if(_cvROI) charts.mROI = MiniCharts.create(_cvROI,{
+    type:'bar',
+    data:{ labels:roiLabels, datasets:[{data:roiAvgs, backgroundColor:roiColors, borderRadius:6, borderSkipped:false}] },
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false},
+        tooltip:{titleFont:FONT,bodyFont:FONT,
+          callbacks:{label:ctx=>roiHas[ctx.dataIndex]?'Avg ROI: $'+roiAvgs[ctx.dataIndex].toLocaleString():'No data'}}},
+      scales:{
+        x:{min:0, ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()}, grid:{color:'rgba(0,0,0,.05)'}},
+        y:{reverse:true, ticks:{font:FONT,color:TC}, grid:{display:false}}
+      }}
+  });}
+
+  /* ── 3. TIER DISTRIBUTION (donut + legend) ── */
+  const tierCounts = TIERS.map(t => mEvents.filter(e=>e.tier===t).length);
+  /* Legend: same index order as chart */
+  setHTML('mTierLeg', TIERS.map((t,k)=>
+    `<div class="dleg-row"><div class="dleg-dot" style="background:${TIER_COLORS[k]}"></div><span>${t}</span><span class="dleg-pct">${tierCounts[k]} event${tierCounts[k]!==1?'s':''}</span></div>`).join(''));
+  /* Chart: same labels, same counts, same colors */
+  destroyChart('mTierChart');
+  {const _cvTier=$s('mTierChart'); if(_cvTier) charts.mTier = MiniCharts.create(_cvTier,{
+    type:'doughnut',
+    data:{ labels:TIERS, datasets:[{data:tierCounts, backgroundColor:TIER_COLORS, borderWidth:0, hoverOffset:5}] },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
+      plugins:{legend:{display:false},
+        tooltip:{titleFont:FONT,bodyFont:FONT,
+          callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed} event${ctx.parsed!==1?'s':''}`}}}}
+  });}
+
+  /* ── Funnel chart — Events, MQL, SQL, Opps for this month ── */
+  destroyChart('mFunnelChart');
+  {const _cvFunnel=$s('mFunnelChart'); if(_cvFunnel) charts.mFunnel = MiniCharts.create(_cvFunnel,{
+    type:'bar',
+    data:{
+      labels:['MQLs','SQLs','Opps'],
+      datasets:[{
+        data:[totMQL, totSQL, totOpps],
+        backgroundColor:['#0096CE','#366B98','#E76E25'],
+        borderRadius:6
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>ctx.label+': '+ctx.parsed.y.toLocaleString()}}},
+      scales:{
+        x:{ticks:{font:FONT,color:TC,autoSkip:false},grid:{color:'rgba(0,0,0,.04)'}},
+        y:{ticks:{font:FONT,color:TC,precision:0},grid:{color:'rgba(0,0,0,.05)'}}
+      }}
+  });}
+
+  /* ── Communication log — from mEvents ── */
+  const mComms = mEvents.filter(e=>e.comm && e.commDate && String(e.commDate).trim() && e.commDate!=='—');
+  setHTML('mCommList', mComms.length
+    ? mComms.map(e=>{
+        const isLog = (e.comm||'').toLowerCase().includes('logistics');
+        return`<div class="comm-row">
+          <div class="comm-ico" style="background:${isLog?'rgba(54,107,152,.1)':'rgba(0,80,93,.1)'}">${isLog?'📋':'📊'}</div>
+          <div style="flex:1">
+            <div><span class="badge ${isLog?'c-log':'c-pres'}">${e.comm}</span></div>
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-top:3px">${e.name||''}</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px">${e.commDate}</div>
+          </div></div>`;
+      }).join('')
+    : `<div style="padding:16px;text-align:center;font-size:12px;color:var(--muted)">No communications logged for ${MO[mi]}.</div>`);
+
+  /* ── Trip reports — from mEvents ─��� */
+  const mTrips = mEvents.filter(e=>e.trip).map(e=>({name:e.name,body:e.trip,sentiment:e.sentiment||'Neutral'}));
+  const tripPos=mTrips.filter(t=>t.sentiment==='Positive').length;
+  const tripNeu=mTrips.filter(t=>t.sentiment==='Neutral').length;
+  const tripNeg=mTrips.filter(t=>t.sentiment==='Negative').length;
+  if(!mTrips.length){
+    setHTML('mTripGrid',`<div style="padding:16px;text-align:center;font-size:12px;color:var(--muted)">No trip reports for ${MO[mi]}.</div>`);
+  } else {
+    /* Build cards — each has a collapsed summary (first ~120 chars to sentence boundary) and expandable full text */
+    const tripCards = mTrips.map((t, idx) => {
+      const bc = t.sentiment==='Positive'?'var(--c5)':t.sentiment==='Negative'?'var(--c8)':'var(--c4)';
+      const sc = t.sentiment==='Positive'?'tr-pos':t.sentiment==='Negative'?'tr-neg':'tr-neu';
+      /* Summary: trim to ~120 chars at a word boundary */
+      const SUMLEN = 120;
+      const needsExpand = t.body.length > SUMLEN;
+      let summary = t.body;
+      if (needsExpand) {
+        const cut = t.body.lastIndexOf(' ', SUMLEN);
+        summary = t.body.slice(0, cut > 60 ? cut : SUMLEN) + '…';
+      }
+      return `<div class="trip-card" style="border-left-color:${bc};margin-bottom:8px" id="tripcard-${mi}-${idx}">
+        <div class="trip-name">${t.name}</div>
+        <div class="trip-body trip-summary-${mi}-${idx}">${summary}</div>
+        ${needsExpand ? `<div class="trip-body trip-full-${mi}-${idx}" style="display:none">${t.body}</div>` : ''}
+        <div class="trip-foot" style="margin-top:6px">
+          <span class="badge ${sc}">${t.sentiment}</span>
+          ${needsExpand ? `<button class="trip-toggle" data-mi="${mi}" data-idx="${idx}" style="background:none;border:none;cursor:pointer;font-size:10px;font-weight:700;color:var(--c5);padding:2px 0;font-family:'Aptos','Calibri',sans-serif;letter-spacing:.3px">Show full report ▾</button>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    setHTML('mTripGrid',`
+      <div style="display:flex;align-items:center;gap:12px;padding:8px 0 14px;flex-wrap:wrap">
+        ${tripPos>0?`<span style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:700;color:var(--c2)"><span style="width:10px;height:10px;border-radius:50%;background:var(--c2);display:inline-block"></span>${tripPos} Positive</span>`:''}
+        ${tripNeu>0?`<span style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:700;color:var(--c4)"><span style="width:10px;height:10px;border-radius:50%;background:var(--c4);display:inline-block"></span>${tripNeu} Neutral</span>`:''}
+        ${tripNeg>0?`<span style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:700;color:var(--c8)"><span style="width:10px;height:10px;border-radius:50%;background:var(--c8);display:inline-block"></span>${tripNeg} Negative</span>`:''}
+      </div>
+      ${tripCards}
+    `);
+
+    /* Wire expand/collapse buttons */
+    setTimeout(() => {
+      document.querySelectorAll('.trip-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const mi2  = btn.dataset.mi;
+          const idx2 = btn.dataset.idx;
+          const sumEl  = document.querySelector(`.trip-summary-${mi2}-${idx2}`);
+          const fullEl = document.querySelector(`.trip-full-${mi2}-${idx2}`);
+          if (!sumEl || !fullEl) return;
+          const expanded = fullEl.style.display === 'block';
+          sumEl.style.display  = expanded ? 'block' : 'none';
+          fullEl.style.display = expanded ? 'none'  : 'block';
+          btn.textContent = expanded ? 'Show full report ▾' : 'Hide full report ▴';
+        });
+      });
+    }, 0);
+  }
+
+  /* ── Event table — from mEvents, respecting filters ── */
+  const srcSet=[...new Set(mEvents.map(e=>e.source).filter(Boolean))].sort();
+  const fSrcEl=$s('fSource');
+  if(fSrcEl){
+    const prev=fSrcEl.value;
+    fSrcEl.innerHTML='<option value="">All Sources</option>'+srcSet.map(s=>`<option value="${s}"${s===prev?' selected':''}>${s}</option>`).join('');
+  }
+  renderEvtTable(mi);
+}
+
+/* ══ TABLE — fallback random generator if no spreadsheet loaded ══ */
+function genEvents(mi){
+  /* Seeded pseudo-random so each month produces stable, distinct events */
+  let seed=(mi+1)*7919;
+  const rng=()=>{ seed=(seed*1664525+1013904223)&0xffffffff; return Math.abs(seed)/0x80000000; };
+  const rInt=(a,b)=>a+Math.floor(rng()*(b-a+1));
+  const n=D.events[mi];
+  /* Offset POOL index by month so January gets different events than December */
+  const offset=mi*3;
+  const mo=MO[mi].slice(0,3);
+  const qtr=mi<3?'Q1':mi<6?'Q2':mi<9?'Q3':'Q4';
+  return Array.from({length:n},(_,i)=>{
+    const b=POOL[(offset+i)%POOL.length];
+    const budget=rInt(5000,27000);
+    const variance=Math.floor((rng()-.4)*budget*.22);
+    const actual=budget+variance;
+    const mql=rInt(8,50);
+    const sql=Math.floor(mql*(.28+rng()*.32));
+    const opps=Math.floor(sql*(.22+rng()*.38));
+    const roi=rInt(90,350);
+    const d1=rInt(1,23);
+    const d2=d1+rInt(1,3);
+    const cd=Math.max(1,d1-4);
+    return{...b,
+      abbr:b.name?b.name.split(' ').map(w=>w[0]).join('').slice(0,4).toUpperCase():'EVT',
+      budget,actual,variance,mql,sql,opps,roi,
+      quarter:qtr,
+      startDate:`${mo} ${String(d1).padStart(2,'0')}, 2026`,
+      endDate:`${mo} ${String(d2).padStart(2,'0')}, 2026`,
+      dates:`${mo} ${String(d1).padStart(2,'0')}–${String(d2).padStart(2,'0')}, 2026`,
+      commDate:'',
+      monthIdx:mi};
+  });
+}
+/* ══ MONTHLY OVERVIEW TABLE ══ */
+function renderEvtTable(mi){
+  const resolvedMi = (mi !== undefined && mi !== null && !isNaN(mi)) ? Number(mi) : curMonth;
+  curMonth = resolvedMi;
+
+  /* Pull events from MONTH_EVENTS (set by renderMonthly) */
+  const source = HAS_SPREADSHEET
+    ? (MONTH_EVENTS.has(resolvedMi) ? MONTH_EVENTS.get(resolvedMi) : [])
+    : [];
+
+  /* Filters */
+  const fT   = ($s('fTier')   ||{}).value||'';
+  const fG   = ($s('fGoal')   ||{}).value||'';
+  const fSrc = ($s('fSource') ||{}).value||'';
+  const rows = source.filter(e =>
+    (!fT   || e.tier   === fT)  &&
+    (!fG   || e.goal   === fG)  &&
+    (!fSrc || e.source === fSrc)
+  );
+  const TBADGE = {'Tier 1':'tier1','Tier 2':'tier2','Tier 3':'tier3','Tier 4':'tier4'};
+  const fmtMoney = v => '$' + Math.round(Number(v)||0).toLocaleString();
+  const sentimentBadge = e => {
+    const s = (e.sentiment||'').toLowerCase();
+    if (s === 'positive') return '<span class="badge tr-pos">Positive</span>';
+    if (s === 'negative') return '<span class="badge" style="background:rgba(231,110,37,.1);color:#c44">Negative</span>';
+    return '<span class="badge tr-neu">Neutral</span>';
+  };
+  setHTML('evtBody', rows.map(e => {
+    const gc  = e.goal === 'Relationship Building' ? 'g-rel' : 'g-lead';
+    const vc  = (e.variance||0) >= 0 ? 'cr' : 'cg';
+    const vs  = (e.variance||0) >= 0 ? '+' : '';
+    const abbr= e.abbr ? `<span class="src">${e.abbr}</span>` : '—';
+    return `<tr>
+      <td>${abbr}</td>
+      <td class="wrap" style="font-weight:600;min-width:140px">${e.name||'—'}</td>
+      <td style="color:var(--muted);white-space:nowrap">${e.startDate||'—'}</td>
+      <td style="color:var(--muted);white-space:nowrap">${e.endDate||'—'}</td>
+      <td><span class="badge ${TBADGE[e.tier]||'tier1'}">${e.tier||'—'}</span></td>
+      <td><span class="badge ${gc}">${e.goal||'—'}</span></td>
+      <td><span class="src">${e.source||'—'}</span></td>
+      <td class="num">${fmtMoney(e.budget)}</td>
+      <td class="num">${fmtMoney(e.actual)}</td>
+      <td class="num ${vc}">${e.actual>0 ? vs+fmtMoney(Math.abs(e.variance||0)) : '—'}</td>
+      <td class="num cb">${e.mql||0}</td>
+      <td class="num">${e.sql||0}</td>
+      <td class="num cg">${e.opps||0}</td>
+      <td class="num co">${e.roi>0?'$'+(e.roi).toLocaleString():'—'}</td>
+      <td class="wrap" style="min-width:200px;max-width:340px;white-space:normal;font-size:11px;line-height:1.5;color:var(--muted)">${e.trip ? `<div style="margin-bottom:4px">${sentimentBadge(e)}</div>${e.trip}` : '—'}</td>
+      <td>${e.comm ? `<span class="badge c-pres">${e.comm}</span>` : '—'}</td>
+      <td style="color:var(--muted);white-space:nowrap">${e.commDate||'—'}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="17" style="text-align:center;padding:28px;color:var(--muted)">${HAS_SPREADSHEET ? 'No events found' : 'Upload the source spreadsheet to view event details'} for ${MO[resolvedMi]||'this month'}.</td></tr>`);
+}
+
+/* ══ NAVIGATION ══ */
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function showYTD(){
+  document.getElementById('pageYTD').classList.add('active');
+  document.getElementById('pageMonthly').classList.remove('active');
+  document.getElementById('tabYTD').classList.add('active');
+  document.getElementById('tabMonthly').classList.remove('active');
+  document.querySelectorAll('.m-btn').forEach(b=>b.classList.remove('active'));
+}
+function showMonthly(i){
+  const mi = Number(i);
+  curMonth = mi;
+  document.getElementById('pageMonthly').classList.add('active');
+  document.getElementById('pageYTD').classList.remove('active');
+  document.getElementById('tabMonthly').classList.add('active');
+  document.getElementById('tabYTD').classList.remove('active');
+  document.querySelectorAll('.m-btn').forEach(b => b.classList.remove('active'));
+  const activeBtn = document.querySelector(`[data-m="${mi}"]`);
+  if (activeBtn) activeBtn.classList.add('active');
+  renderMonthly(mi);
+  setHTML('tabMonthly', `<span class="tab-icon">📅</span> ${MO[mi]} Detail`);
+}
+
+/* ══ LAST UPDATED ══ */
+/* DATA_SAVE_DATE is set once when the source spreadsheet is baked in.
+   Update this string whenever the source data is refreshed. */
+const DATA_SAVE_DATE = "Mar 19, 2026";
+
+function setLastUpdated(){
+  const syncEl = document.getElementById('syncText');
+  if (syncEl) syncEl.textContent = DATA_SAVE_DATE;
+}
+function setConnStatus(){ setLastUpdated(); }
+
+/* ══ OPEN / CLOSE MODAL ══ */
+function openModal(){ buildGrid(); document.getElementById('modalBg').classList.add('open'); }
+function closeModal(){ document.getElementById('modalBg').classList.remove('open'); }
+
+/* ══ DATA GRID EDITOR ══ */
+let _gridDraft = [];   /* working copy of POOL while grid is open */
+
+const GRID_MO = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+const CELL_CFG = [
+  /* [field, type, width, options?] */
+  ['abbr',      'text',     70],
+  ['name',      'text',     220],
+  ['monthIdx',  'select',   110, GRID_MO],
+  ['tier',      'select',   90,  ['Tier 1','Tier 2','Tier 3','Tier 4']],
+  ['goal',      'select',   140, ['Lead Generation','Relationship Building']],
+  ['source',    'select',   130, ['Attended in 2025','New for 2026','Other']],
+  ['budget',    'number',   90],
+  ['actual',    'number',   90],
+  ['mql',       'number',   60],
+  ['sql',       'number',   60],
+  ['opps',      'number',   60],
+  ['roi',       'number',   80],
+  ['comm',      'select',   160, ['Logistics Document','Pre-Show Brief & Document','']],
+  ['commDate',  'text',     110],
+  ['startDate', 'text',     110],
+  ['endDate',   'text',     110],
+  ['sentiment', 'select',   110, ['Positive','Neutral','Negative','']],
+  ['trip',      'textarea', 280],
+];
+
+function buildGrid(){
+  /* Deep-copy POOL into draft */
+  _gridDraft = POOL.map(e => ({...e}));
+  renderGridRows();
+}
+
+function gridFilteredRows(){
+  const search = ($s('gridSearch')||{}).value||'';
+  const fMonth = ($s('gridFilterMonth')||{}).value||'';
+  const fTier  = ($s('gridFilterTier')||{}).value||'';
+  const sl = search.toLowerCase();
+  return _gridDraft.map((r,i)=>({r,i})).filter(({r})=>{
+    if(fMonth && GRID_MO[r.monthIdx] !== fMonth) return false;
+    if(fTier  && r.tier !== fTier) return false;
+    if(sl && !((r.name||'').toLowerCase().includes(sl) || (r.abbr||'').toLowerCase().includes(sl))) return false;
+    return true;
+  });
+}
+
+function renderGridRows(){
+  const filtered = gridFilteredRows();
+  const tbody = $s('gridBody');
+  if(!tbody) return;
+  const rc = $s('gridRowCount');
+  if(rc) rc.textContent = `${filtered.length} of ${_gridDraft.length} events`;
+  tbody.innerHTML = filtered.map(({r, i}) => {
+    const moName = GRID_MO[r.monthIdx] || '—';
+    const td = (field, type, opts) => {
+      const val = r[field] !== undefined ? r[field] : '';
+      const display = field === 'monthIdx' ? moName : val;
+      if(type === 'select'){
+        const optHtml = (opts||[]).map(o => {
+          const v = field==='monthIdx' ? GRID_MO.indexOf(o) : o;
+          return `<option value="${v}"${String(v)===String(val)?' selected':''}>${o}</option>`;
+        }).join('');
+        return `<td style="padding:0;border-bottom:1px solid rgba(220,220,220,.35)"><select data-row="${i}" data-field="${field}" onchange="gridCellChange(this)" style="width:100%;padding:7px 8px;border:none;background:transparent;font-size:12px;font-family:'Aptos','Calibri',sans-serif;color:var(--text);cursor:pointer">${optHtml}</select></td>`;
+      }
+      if(type === 'number'){
+        return `<td style="padding:0;border-bottom:1px solid rgba(220,220,220,.35);text-align:right"><input type="number" data-row="${i}" data-field="${field}" value="${val}" onchange="gridCellChange(this)" style="width:100%;padding:7px 8px;border:none;background:transparent;font-size:12px;font-family:'Aptos','Calibri',sans-serif;color:var(--text);text-align:right"></td>`;
+      }
+      if(type === 'textarea'){
+        const safe = String(val).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return `<td style="padding:0;border-bottom:1px solid rgba(220,220,220,.35);vertical-align:top"><textarea data-row="${i}" data-field="${field}" oninput="gridCellChange(this)" rows="3" style="width:100%;padding:7px 8px;border:none;background:transparent;font-size:12px;font-family:'Aptos','Calibri',sans-serif;color:var(--text);resize:vertical;line-height:1.45;min-height:60px">${safe}</textarea></td>`;
+      }
+      return `<td style="padding:0;border-bottom:1px solid rgba(220,220,220,.35)"><input type="text" data-row="${i}" data-field="${field}" value="${String(display).replace(/"/g,'&quot;')}" onchange="gridCellChange(this)" style="width:100%;padding:7px 8px;border:none;background:transparent;font-size:12px;font-family:'Aptos','Calibri',sans-serif;color:var(--text)"></td>`;
+    };
+    const rowBg = i % 2 === 0 ? '#fff' : '#F8FAFB';
+    return `<tr style="background:${rowBg}" onmouseenter="this.style.background='rgba(0,150,206,.04)'" onmouseleave="this.style.background='${rowBg}'">
+      <td style="padding:4px 8px;border-bottom:1px solid rgba(220,220,220,.35);text-align:center">
+        <button onclick="gridDeleteRow(${i})" title="Delete row" style="background:none;border:none;cursor:pointer;color:rgba(200,80,50,.6);font-size:13px;padding:2px 4px;border-radius:4px" onmouseenter="this.style.color='#c44'" onmouseleave="this.style.color='rgba(200,80,50,.6)'">🗑</button>
+      </td>
+      ${CELL_CFG.map(([f,t,,o])=>td(f,t,o)).join('')}
+    </tr>`;
+  }).join('');
+}
+
+function gridCellChange(el){
+  const i = parseInt(el.dataset.row, 10);
+  const field = el.dataset.field;
+  let val = el.value;
+  if(el.type === 'number') val = parseFloat(val)||0;
+  if(field === 'monthIdx') val = parseInt(val, 10);
+  _gridDraft[i][field] = val;
+  /* Recompute variance when budget or actual changes */
+  if(field === 'budget' || field === 'actual'){
+    _gridDraft[i].variance = (_gridDraft[i].actual||0) - (_gridDraft[i].budget||0);
+  }
+  /* Mark cell bg as changed */
+  el.style.background = 'rgba(0,150,206,.07)';
+  setTimeout(()=>{ el.style.background='transparent'; }, 800);
+}
+
+function gridDeleteRow(i){
+  /* Two-step delete: first click arms the button, second click deletes.
+     Works in iframes where confirm() is blocked. */
+  const btn = document.querySelector(`button[onclick="gridDeleteRow(${i})"]`);
+  if (!btn) { _gridDraft.splice(i,1); renderGridRows(); return; }
+  if (btn.dataset.armed === '1') {
+    _gridDraft.splice(i, 1);
+    renderGridRows();
+  } else {
+    btn.dataset.armed = '1';
+    btn.textContent = '✓?';
+    btn.style.color = '#c44';
+    btn.title = 'Click again to confirm delete';
+    setTimeout(() => { if(btn.dataset.armed==='1'){ btn.dataset.armed='0'; btn.textContent='🗑'; btn.style.color='rgba(200,80,50,.6)'; btn.title='Delete row'; } }, 2500);
+  }
+}
+
+function gridAddRow(){
+  _gridDraft.push({
+    abbr:'', name:'New Event', tier:'Tier 3', source:'New for 2026',
+    goal:'Lead Generation', budget:0, actual:0, variance:0,
+    mql:0, sql:0, opps:0, roi:0, comm:'', commDate:'',
+    trip:'', startDate:'', endDate:'', monthIdx:0,
+    sentiment:'Neutral', status:'Completed', quarter:'', bu:'', notes:''
+  });
+  /* Clear filters so new row is visible */
+  const gs=$s('gridSearch'); if(gs) gs.value='';
+  const gm=$s('gridFilterMonth'); if(gm) gm.value='';
+  const gt=$s('gridFilterTier'); if(gt) gt.value='';
+  renderGridRows();
+  /* Scroll to bottom */
+  setTimeout(()=>{ const t=$s('gridTable'); if(t) t.closest('div[style*="overflow"]').scrollTop=999999; }, 50);
+}
+
+function gridApply(){
+  /* Push draft back into live POOL */
+  POOL.length = 0;
+  _gridDraft.forEach(e => {
+    e.monthIdx = Number(e.monthIdx);
+    e.variance = (e.actual||0) - (e.budget||0);
+    /* Blank sentiment if there is no trip report text */
+    if (!e.trip || !String(e.trip).trim()) e.sentiment = '';
+    POOL.push(e);
+  });
+
+  /* Rebuild MONTH_EVENTS */
+  MONTH_EVENTS.clear();
+  for(let m=0;m<12;m++) MONTH_EVENTS.set(m, POOL.filter(e=>Number(e.monthIdx)===m));
+
+  /* Recompute D aggregates from POOL */
+  const blank12=()=>Array(12).fill(0);
+  const newD={events:blank12(),mql:blank12(),sql:blank12(),opps:blank12(),budget:blank12(),actual:blank12(),variance:blank12(),roi:blank12()};
+  const roiSum=blank12(), roiCnt=blank12();
+  const newTMI={'Tier 1':blank12(),'Tier 2':blank12(),'Tier 3':blank12(),'Tier 4':blank12()};
+  const srcCnt={}, roiByTier={'Tier 1':[],'Tier 2':[],'Tier 3':[],'Tier 4':[]};
+  const goalCnt={'Relationship Building':0,'Lead Generation':0};
+
+  POOL.forEach(e=>{
+    const m=Number(e.monthIdx);
+    if(m<0||m>11) return;
+    newD.events[m]++;
+    newD.mql[m]+=(Number(e.mql)||0);
+    newD.sql[m]+=(Number(e.sql)||0);
+    newD.opps[m]+=(Number(e.opps)||0);
+    newD.budget[m]+=(Number(e.budget)||0);
+    newD.actual[m]+=(Number(e.actual)||0);
+    newD.variance[m]+=(Number(e.variance)||0);
+    if((Number(e.roi)||0)>0){roiSum[m]+=(Number(e.roi)||0);roiCnt[m]++;}
+    if(newTMI[e.tier]) newTMI[e.tier][m]++;
+    const src=e.source||'Other'; srcCnt[src]=(srcCnt[src]||0)+1;
+    if(roiByTier[e.tier]&&(Number(e.roi)||0)>0) roiByTier[e.tier].push(Number(e.roi));
+    if(e.goal in goalCnt) goalCnt[e.goal]++;
+  });
+  for(let m=0;m<12;m++) newD.roi[m]=roiCnt[m]?Math.round(roiSum[m]/roiCnt[m]):0;
+
+  Object.assign(D, newD);
+  Object.assign(TIER_EVENTS_MI, newTMI);
+
+  const srcTotal=Object.values(srcCnt).reduce((s,v)=>s+v,0)||1;
+  const srcEnt=Object.entries(srcCnt).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  Object.assign(SRC,{labels:srcEnt.map(e=>e[0]),data:srcEnt.map(e=>Math.round(e[1]/srcTotal*100)),colors:['#00505D','#0096CE','#E76E25','#366B98','#7BC3D0','#DCDCDC'].slice(0,srcEnt.length)});
+
+  ROI_T.length=0;
+  ['Tier 1','Tier 2','Tier 3','Tier 4'].forEach((t,k)=>{
+    const v=roiByTier[t]; const avg=v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):0;
+    ROI_T.push({lbl:t,roi:avg,c:['#E76E25','#0096CE','#7BC3D0','#366B98'][k]});
+  });
+
+  GOALS_DATA.length=0;
+  GOALS_DATA.push({lbl:'Relationship Building',ico:'🤝',val:goalCnt['Relationship Building']||0,target:Math.max(10,Math.round((goalCnt['Relationship Building']||0)*1.15)),cls:'gc-rel',pc:'#0096CE',ytdVal:goalCnt['Relationship Building']||0,ytdTarget:Math.max(10,Math.round((goalCnt['Relationship Building']||0)*1.15))});
+  GOALS_DATA.push({lbl:'Lead Generation',ico:'🎯',val:goalCnt['Lead Generation']||0,target:Math.max(10,Math.round((goalCnt['Lead Generation']||0)*.92)),cls:'gc-lead',pc:'#E76E25',ytdVal:goalCnt['Lead Generation']||0,ytdTarget:Math.max(10,Math.round((goalCnt['Lead Generation']||0)*.92))});
+
+  setConnStatus('green');
+
+  /* Rebuild charts */
+  Object.keys(charts).forEach(k=>{if(charts[k]){charts[k].destroy();delete charts[k];}});
+  renderYTD();
+  renderMonthly(curMonth);
+  if($s('pageYTD').classList.contains('active')) showYTD();
+  else showMonthly(curMonth);
+
+  const st=$s('gridSaveStatus');
+  if(st) st.textContent = '⏳ Saving…';
+
+  /* Always save locally first (instant, works offline) */
+
+  /* Push to shared API if configured */
+  if (GH.isConfigured()) {
+    setGhStatus('syncing');
+    GH.save(POOL).then(result => {
+      if (result.ok) {
+        setGhStatus('ok');
+        const syncEl = document.getElementById('syncText');
+        if (syncEl) syncEl.textContent = result.savedAt || new Date().toLocaleString('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+        if(st){ st.textContent='✓ Saved & synced to shared store'; setTimeout(()=>{ st.textContent=''; closeModal(); },1400); }
+      } else {
+        setGhStatus('error');
+        if(st){ st.textContent=`⚠ Sync failed (${result.error||'unknown'}) — saved locally only`; setTimeout(()=>{ st.textContent=''; closeModal(); },2800); }
+      }
+    });
+  } else {
+    if(st){ st.textContent='✓ Saved to shared store'; setTimeout(()=>{ st.textContent=''; closeModal(); },1800); }
+  }
+}
+
+/* ══ LIVE SYNC STATUS INDICATOR ══ */
+function setGhStatus(state) {
+  const dot   = document.getElementById('liveDot');
+  const label = document.getElementById('liveLabel');
+  const pill  = document.getElementById('livePill');
+  if (!dot || !label) return;
+  if (state === 'ok') {
+    dot.style.background = '#4cd977';
+    dot.style.boxShadow  = '0 0 6px rgba(76,217,119,.8)';
+    label.textContent = '⚡ Live';
+    pill.title = 'Live sync — polling every 5s';
+  } else if (state === 'syncing') {
+    dot.style.background = '#f5c842';
+    dot.style.boxShadow  = '0 0 6px rgba(245,200,66,.7)';
+    label.textContent = 'Saving…';
+    pill.title = 'Saving to shared store…';
+  } else if (state === 'incoming') {
+    dot.style.background = '#7BC3D0';
+    dot.style.boxShadow  = '0 0 6px rgba(0,150,206,.8)';
+    label.textContent = '↓ Updating';
+    pill.title = 'Receiving live update from another user';
+  } else if (state === 'error') {
+    dot.style.background = '#ff5f57';
+    dot.style.boxShadow  = '0 0 6px rgba(255,95,87,.7)';
+    label.textContent = 'Sync error';
+    pill.title = 'Sync error — check Vercel env vars';
+  } else {
+    dot.style.background = 'rgba(255,255,255,.3)';
+    dot.style.boxShadow  = 'none';
+    label.textContent = 'Connecting…';
+    pill.title = 'Connecting to live sync…';
+  }
+}
+
+/* ══ STARTUP: bootstrap from baked-in POOL ══ */
+function bootstrapFromPool(){
+  /* Clear sentiment for any event that has no trip report text */
+  POOL.forEach(e => { if (!e.trip || !String(e.trip).trim()) e.sentiment = ''; });
+
+  /* Build MONTH_EVENTS */
+  MONTH_EVENTS.clear();
+  for(let m=0;m<12;m++) MONTH_EVENTS.set(m, POOL.filter(e=>Number(e.monthIdx)===m));
+
+  /* Compute D aggregates */
+  const blank12=()=>Array(12).fill(0);
+  const newD={events:blank12(),mql:blank12(),sql:blank12(),opps:blank12(),budget:blank12(),actual:blank12(),variance:blank12(),roi:blank12()};
+  const roiSum=blank12(),roiCnt=blank12();
+  const newTMI={'Tier 1':blank12(),'Tier 2':blank12(),'Tier 3':blank12(),'Tier 4':blank12()};
+  const srcCnt={},roiByTier={'Tier 1':[],'Tier 2':[],'Tier 3':[],'Tier 4':[]};
+  const goalCnt={'Relationship Building':0,'Lead Generation':0};
+
+  POOL.forEach(e=>{
+    const m=Number(e.monthIdx);
+    if(m<0||m>11) return;
+    newD.events[m]++;
+    newD.mql[m]+=(Number(e.mql)||0);
+    newD.sql[m]+=(Number(e.sql)||0);
+    newD.opps[m]+=(Number(e.opps)||0);
+    newD.budget[m]+=(Number(e.budget)||0);
+    newD.actual[m]+=(Number(e.actual)||0);
+    newD.variance[m]+=(Number(e.variance)||0);
+    if((Number(e.roi)||0)>0){roiSum[m]+=(Number(e.roi)||0);roiCnt[m]++;}
+    if(newTMI[e.tier]) newTMI[e.tier][m]++;
+    const src=e.source||'Other'; srcCnt[src]=(srcCnt[src]||0)+1;
+    if(roiByTier[e.tier]&&(Number(e.roi)||0)>0) roiByTier[e.tier].push(Number(e.roi));
+    if(e.goal in goalCnt) goalCnt[e.goal]++;
+  });
+  for(let m=0;m<12;m++) newD.roi[m]=roiCnt[m]?Math.round(roiSum[m]/roiCnt[m]):0;
+  Object.assign(D,newD);
+  Object.assign(TIER_EVENTS_MI,newTMI);
+
+  const srcTotal=Object.values(srcCnt).reduce((s,v)=>s+v,0)||1;
+  const srcEnt=Object.entries(srcCnt).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  Object.assign(SRC,{labels:srcEnt.map(e=>e[0]),data:srcEnt.map(e=>Math.round(e[1]/srcTotal*100)),colors:['#00505D','#0096CE','#E76E25','#366B98','#7BC3D0','#DCDCDC'].slice(0,srcEnt.length)});
+
+  ROI_T.length=0;
+  ['Tier 1','Tier 2','Tier 3','Tier 4'].forEach((t,k)=>{
+    const v=roiByTier[t];const avg=v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):0;
+    ROI_T.push({lbl:t,roi:avg,c:['#E76E25','#0096CE','#7BC3D0','#366B98'][k]});
+  });
+
+  GOALS_DATA.length=0;
+  GOALS_DATA.push({lbl:'Relationship Building',ico:'🤝',val:goalCnt['Relationship Building']||0,target:Math.max(10,Math.round((goalCnt['Relationship Building']||0)*1.15)),cls:'gc-rel',pc:'#0096CE',ytdVal:goalCnt['Relationship Building']||0,ytdTarget:Math.max(10,Math.round((goalCnt['Relationship Building']||0)*1.15))});
+  GOALS_DATA.push({lbl:'Lead Generation',ico:'🎯',val:goalCnt['Lead Generation']||0,target:Math.max(10,Math.round((goalCnt['Lead Generation']||0)*.92)),cls:'gc-lead',pc:'#E76E25',ytdVal:goalCnt['Lead Generation']||0,ytdTarget:Math.max(10,Math.round((goalCnt['Lead Generation']||0)*.92))});
+
+  setConnStatus('green');
+}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+  const headerBrand = document.getElementById('headerBrand');
+  if (headerBrand) headerBrand.addEventListener('click', showYTD);
+
+  /* ── Edit Data button ── */
+  const btnUpload = document.getElementById('btnUpload');
+  if (btnUpload) btnUpload.addEventListener('click', openModal);
+
+  /* ── Modal background click to close ── */
+  const modalBg = document.getElementById('modalBg');
+  if (modalBg) modalBg.addEventListener('click', e => { if (e.target === modalBg) closeModal(); });
+
+  /* ── Grid cancel button ── */
+  const gridCancel = document.getElementById('gridCancel');
+  if (gridCancel) gridCancel.addEventListener('click', closeModal);
+
+  /* ── Grid save button ── */
+  const gridSave = document.getElementById('gridSave');
+  if (gridSave) gridSave.addEventListener('click', gridApply);
+
+  /* ── GitHub / Vercel sync config button ── */
+  /* Live sync status set during startup */
+  const gridResetBtn = document.getElementById('gridReset');
+  if (gridResetBtn) gridResetBtn.addEventListener('click', async () => {
+    if (!confirm('Reset all data to the original source? All edits — including any saved to GitHub — will be lost.')) return;
+    
+    /* Push the original baked-in POOL to GitHub so all users get the reset */
+    if (GH.isConfigured()) {
+      const st = $s('gridSaveStatus');
+      if(st) st.textContent = '⏳ Resetting on GitHub…';
+      await GH.save([...POOL_ORIGINAL]);
+    }
+    location.reload();
+  });
+
+  /* ── Grid add row button ── */
+  const gridAddRowBtn = document.getElementById('gridAddRow');
+  if (gridAddRowBtn) gridAddRowBtn.addEventListener('click', gridAddRow);
+
+  /* ── Grid search and filters ── */
+  ['gridSearch','gridFilterMonth','gridFilterTier'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', renderGridRows);
+    if (el) el.addEventListener('change', renderGridRows);
+  });
+
+  /* ── YTD / Monthly nav tabs ── */
+  const tabYTD = document.getElementById('tabYTD');
+  if (tabYTD) tabYTD.addEventListener('click', showYTD);
+  const tabMonthly = document.getElementById('tabMonthly');
+  if (tabMonthly) tabMonthly.addEventListener('click', () => showMonthly(curMonth));
+
+  /* ── Month strip buttons ── */
+  document.querySelectorAll('.m-btn').forEach(btn => {
+    const m = parseInt(btn.getAttribute('data-m'), 10);
+    btn.addEventListener('click', () => showMonthly(m));
+  });
+
+  /* ── Filter dropdowns ── */
+  ['fTier','fGoal','fSource'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', () => renderEvtTable());
+  });
+
+  /* ── YTD summary table rows (delegated) ── */
+  const summaryBody = document.getElementById('ytdSummaryBody');
+  if (summaryBody) {
+    summaryBody.addEventListener('click', e => {
+      const row = e.target.closest('tr');
+      if (row && row.dataset.month !== undefined) showMonthly(parseInt(row.dataset.month, 10));
+    });
+  }
+
+  /* ── Startup: load live data from API, fall back to baked-in POOL ── */
+  (async () => {
+    setGhStatus('syncing');
+    try {
+      const data = await API.load();
+      if (data && Array.isArray(data.pool) && data.pool.length > 0) {
+        POOL.length = 0;
+        data.pool.forEach(e => POOL.push(e));
+        if (data.savedAt) {
+          const syncEl = document.getElementById('syncText');
+          if (syncEl) syncEl.textContent = data.savedAt;
+        }
+        API._lastUpdatedAt = data.updatedAt || Date.now();
+        setGhStatus('ok');
+      } else {
+        setGhStatus('ok');
+      }
+    } catch(e) {
+      setGhStatus('error');
+      console.warn('[Startup] API load failed, using baked-in data:', e.message);
+    }
+    bootstrapFromPool();
+    renderYTD();
+    showYTD();
+    API.startPolling();
+  })();
+
+  /* Redraw all active charts when window resizes */
+  let _resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => {
+      Object.values(charts).forEach(c => { try { c.update && c.update(); } catch(e){} });
+    }, 120);
+  });
+
+  } catch(e) {
+    console.error('[Dashboard] Startup error:', e.message, e.stack);
+  }
+
+});
+
+</script>
+</div>
+
+
+
+</body>
+</html>
