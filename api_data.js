@@ -3,7 +3,7 @@
 //
 // Required environment variables in Vercel dashboard:
 //   JSONBIN_API_KEY   — your JSONBin.io master key (jsonbin.io → API Keys)
-//   JSONBIN_BIN_ID    — leave blank on first deploy; added after first save
+//   JSONBIN_BIN_ID    — must be: $2a$10$QmBrFHFh.W.mnooABLA3Ku4T3f3GBJz7EQn8eSvN3ZF/dzL4RsmmC
 //   API_SECRET        — must be: 2026events
 
 const JSONBIN_KEY  = process.env.JSONBIN_API_KEY;
