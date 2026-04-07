@@ -699,6 +699,7 @@ td.wrap{white-space:normal;min-width:160px}
 .kpi:nth-child(8){animation-delay:.28s}
 @keyframes countUp{from{opacity:0}to{opacity:1}}
 
+.ytd-k8::before{background:#366B98}
 @media(max-width:1280px){.kpi-grid-8{grid-template-columns:repeat(4,1fr)}.kpi-grid-7{grid-template-columns:repeat(4,1fr)}.g3,.g211{grid-template-columns:1fr 1fr}.g4{grid-template-columns:1fr 1fr}}
 @media(max-width:840px){main{padding:16px}.kpi-grid-8,.kpi-grid-7{grid-template-columns:1fr 1fr}.g2,.g3,.g3e,.g4,.g31,.g211{grid-template-columns:1fr}.tier-grid{grid-template-columns:1fr 1fr}.hero-stats{gap:18px}.ytd-hero{grid-template-columns:1fr}}
 </style>
@@ -774,17 +775,38 @@ td.wrap{white-space:normal;min-width:160px}
     </div>
   </div>
 
+  <!-- 2026 SUMMARY -->
+  <div class="sec">2026 Summary</div>
+  <div style="display:grid;grid-template-columns:auto auto 1fr;gap:14px;margin-bottom:16px;align-items:stretch">
+    <!-- Total Events block -->
+    <div class="kpi ytd-k0" style="min-width:140px">
+      <div class="kpi-lbl">Total Events</div>
+      <div class="kpi-val" id="yk0">—</div>
+      <div class="kpi-dl neu" id="yd0">Full year</div>
+    </div>
+    <!-- Full Year Budget block -->
+    <div class="kpi ytd-k4" style="min-width:160px">
+      <div class="kpi-lbl">Full Year Budget</div>
+      <div class="kpi-val" id="yk-fybud">—</div>
+      <div class="kpi-dl neu" id="yd-fybud">All events budgeted</div>
+    </div>
+    <!-- Events per Month chart -->
+    <div class="panel" style="padding:14px 18px;display:flex;flex-direction:column;min-height:100px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Events per Month</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:70px"><canvas id="summaryEventsChart" style="width:100%;height:100%"></canvas></div>
+    </div>
+  </div>
+
   <!-- YTD KPIs -->
   <div class="sec">Year-to-Date KPIs</div>
-  <div class="kpi-grid kpi-grid-8">
-    <div class="kpi ytd-k0"><div class="kpi-lbl">Total Events</div><div class="kpi-val" id="yk0">—</div><div class="kpi-dl neu" id="yd0"></div></div>
+  <div class="kpi-grid kpi-grid-7">
     <div class="kpi ytd-k1"><div class="kpi-lbl">Total MQLs</div><div class="kpi-val" id="yk1">—</div><div class="kpi-dl neu" id="yd1"></div></div>
     <div class="kpi ytd-k2"><div class="kpi-lbl">Total SQLs</div><div class="kpi-val" id="yk2">—</div><div class="kpi-dl neu" id="yd2"></div></div>
     <div class="kpi ytd-k3"><div class="kpi-lbl">Total Opps</div><div class="kpi-val" id="yk3">—</div><div class="kpi-dl neu" id="yd3"></div></div>
-    <div class="kpi ytd-k4"><div class="kpi-lbl">Budgeted (USD)</div><div class="kpi-val" id="yk4">—</div><div class="kpi-dl neu" id="yd4"></div></div>
     <div class="kpi ytd-k5"><div class="kpi-lbl">Actuals (USD)</div><div class="kpi-val" id="yk5">—</div><div class="kpi-dl neu" id="yd5"></div></div>
-    <div class="kpi ytd-k6"><div class="kpi-lbl">ROI</div><div class="kpi-val" id="yk6">—</div><div class="kpi-dl neu" id="yd6"></div></div>
     <div class="kpi ytd-k7"><div class="kpi-lbl">Variance</div><div class="kpi-val" id="yk7">—</div><div class="kpi-dl neu" id="yd7"></div></div>
+    <div class="kpi ytd-k6"><div class="kpi-lbl">Cost per MQL</div><div class="kpi-val" id="yk6">—</div><div class="kpi-dl neu" id="yd6"></div></div>
+    <div class="kpi ytd-k8"><div class="kpi-lbl">Cost per Opp</div><div class="kpi-val" id="yk8">—</div><div class="kpi-dl neu" id="yd8"></div></div>
   </div>
 
   <!-- YTD CHARTS ROW 1: Funnel + Spend -->
@@ -823,7 +845,7 @@ td.wrap{white-space:normal;min-width:160px}
   <div class="sec">YTD Performance by Tier</div>
   <div class="panel" style="margin-bottom:16px">
     <div class="pt">Tier Scorecard — Full Year 2026 <span class="pt-r">all months combined</span></div>
-    <div class="ps">Events, leads, conversions and ROI aggregated by tier across January – December</div>
+    <div class="ps">Events, leads, conversions and Cost per MQL aggregated by tier across January – December</div>
     <div class="tier-grid" id="ytdTierGrid"></div>
   </div>
 
@@ -836,8 +858,8 @@ td.wrap{white-space:normal;min-width:160px}
       <div class="prog-list" id="ytdGoalProgs"></div>
     </div>
     <div class="panel">
-      <div class="pt">ROI by Tier — YTD Average</div>
-      <div class="ps">Average return on investment per tier across all 2026 events</div>
+      <div class="pt">Cost per MQL by Tier — YTD Average</div>
+      <div class="ps">Average cost per MQL per event tier across all 2026 events</div>
       <div style="position:relative;height:185px"><canvas id="ytdROIChart" style="width:100%;height:100%"></canvas></div>
     </div>
   </div>
@@ -859,7 +881,7 @@ td.wrap{white-space:normal;min-width:160px}
             <th>Budgeted (USD)</th>
             <th>Actuals (USD)</th>
             <th>Variance</th>
-            <th>ROI</th>
+            <th>Cost per MQL</th>
           </tr>
         </thead>
         <tbody id="ytdSummaryBody"></tbody>
@@ -884,7 +906,7 @@ td.wrap{white-space:normal;min-width:160px}
     <div class="kpi a-navy">  <div class="kpi-lbl">Opportunities</div><div class="kpi-val" id="kv3">—</div><div class="kpi-dl" id="kd3"></div></div>
     <div class="kpi a-orange">  <div class="kpi-lbl">Budgeted (USD)</div><div class="kpi-val" id="kv4">—</div><div class="kpi-dl" id="kd4"></div></div>
     <div class="kpi a-teal"><div class="kpi-lbl">Actuals (USD)</div><div class="kpi-val" id="kv5">—</div><div class="kpi-dl" id="kd5"></div></div>
-    <div class="kpi a-orange"> <div class="kpi-lbl">ROI</div><div class="kpi-val" id="kv6">—</div><div class="kpi-dl" id="kd6"></div></div>
+    <div class="kpi a-orange"> <div class="kpi-lbl">Cost per MQL</div><div class="kpi-val" id="kv6">—</div><div class="kpi-dl" id="kd6"></div></div>
     <div class="kpi a-teal">  <div class="kpi-lbl">Variance</div><div class="kpi-val" id="kv7">—</div><div class="kpi-dl" id="kd7"></div></div>
   </div>
 
@@ -892,7 +914,7 @@ td.wrap{white-space:normal;min-width:160px}
   <div class="sec">Performance by Tier — <span id="tierLbl">December 2026</span></div>
   <div class="panel" style="margin-bottom:16px">
     <div class="pt">Tier Scorecard <span class="pt-r" id="tierScoreLbl"></span></div>
-    <div class="ps">Events, MQLs, SQLs, Opportunities and ROI per tier for the selected month</div>
+    <div class="ps">Events, MQLs, SQLs, Opportunities and Cost per MQL per tier for the selected month</div>
     <div class="tier-grid" id="mTierGrid"></div>
   </div>
 
@@ -910,7 +932,7 @@ td.wrap{white-space:normal;min-width:160px}
       <div class="spend-list" id="mSpendList"></div>
     </div>
     <div class="panel">
-      <div class="pt">Goal Type</div>
+      <div class="pt">Event Purpose</div>
       <div class="ps">Relationship Building &amp; Lead Generation</div>
       <div class="goal-duo" id="mGoalDuo"></div>
       <div class="prog-list" id="mGoalProgs"></div>
@@ -928,8 +950,8 @@ td.wrap{white-space:normal;min-width:160px}
       </div>
     </div>
     <div class="panel" style="display:flex;flex-direction:column">
-      <div class="pt">ROI by Tier</div>
-      <div class="ps">Return on investment per event tier</div>
+      <div class="pt">Cost per MQL by Tier</div>
+      <div class="ps">Average cost per MQL per event tier for this month</div>
       <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="mROIChart" style="width:100%;height:100%"></canvas></div>
       <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;flex-shrink:0" id="mROIRows"></div>
     </div>
@@ -962,7 +984,7 @@ td.wrap{white-space:normal;min-width:160px}
     <div class="filter-bar">
       <span class="fl">Filter:</span>
       <select class="fs" id="fTier"><option value="">All Tiers</option><option>Tier 1</option><option>Tier 2</option><option>Tier 3</option><option>Tier 4</option></select>
-      <select class="fs" id="fGoal"><option value="">All Goal Types</option><option>Relationship Building</option><option>Lead Generation</option></select>
+      <select class="fs" id="fGoal"><option value="">All Event Purposes</option><option>Relationship Building</option><option>Lead Generation</option></select>
       <select class="fs" id="fSource"><option value="">All Sources</option></select>
     </div>
     <div class="tbl-scroll">
@@ -973,7 +995,7 @@ td.wrap{white-space:normal;min-width:160px}
           <th>Start Date</th>
           <th>End Date</th>
           <th>Tier</th>
-          <th>Goal Type</th>
+          <th>Event Purpose</th>
           <th>Source</th>
           <th>Budgeted (USD)</th>
           <th>Actuals (USD)</th>
@@ -981,10 +1003,12 @@ td.wrap{white-space:normal;min-width:160px}
           <th>MQLs</th>
           <th>SQLs</th>
           <th>Opportunities</th>
-          <th>ROI</th>
+          <th>Cost per MQL</th>
+          <th>Cost per Opp</th>
           <th>Trip Report Results</th>
           <th>Comm Type</th>
           <th>Comm Date</th>
+          <th>Days Prior</th>
         </tr></thead>
         <tbody id="evtBody"></tbody>
       </table>
@@ -1044,7 +1068,8 @@ td.wrap{white-space:normal;min-width:160px}
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">MQLs</th>
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">SQLs</th>
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Opps</th>
-            <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">ROI</th>
+            <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Cost/MQL</th>
+<th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Cost/Opp</th>
 <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Comm Type</th>
 <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:100px">Comm Date</th>
 <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:100px">Start Date</th>
@@ -1200,10 +1225,10 @@ const D = {
   budget:[45,53,67,75,70,84,78,92,65,82,77,94],
   actual:[42,55,64,78,67,86,74,88,63,84,73,90]
 };
-D.roi = D.actual.map((a,i)=>Math.round(((D.opps[i]*18500-a*1000)/(a*1000))*100));
+D.roi = D.actual.map((a,i)=> D.mql[i]>0 ? Math.round(a*1000/D.mql[i]) : 0);
 D.variance = D.actual.map((a,i)=>a-D.budget[i]);
 
-const SRC={labels:['Partner Referral','Email','Paid Ads','Website','Social Media','Other'],data:[30,26,20,14,7,3],colors:['#00505D','#0096CE','#E76E25','#366B98','#7BC3D0','#DCDCDC']};const ROI_T=[{lbl:'Tier 1',roi:340,c:'#E76E25'},{lbl:'Tier 2',roi:218,c:'#0096CE'},{lbl:'Tier 3',roi:145,c:'#7BC3D0'},{lbl:'Tier 4',roi:98,c:'#366B98'}];
+const SRC={labels:['Partner Referral','Email','Paid Ads','Website','Social Media','Other'],data:[30,26,20,14,7,3],colors:['#00505D','#0096CE','#E76E25','#366B98','#7BC3D0','#DCDCDC']};const ROI_T=[{lbl:'Tier 1',roi:420,c:'#E76E25'},{lbl:'Tier 2',roi:310,c:'#0096CE'},{lbl:'Tier 3',roi:180,c:'#7BC3D0'},{lbl:'Tier 4',roi:90,c:'#366B98'}];
 const TIER_EVENTS_MI={'Tier 1':[3,3,4,4,3,5,4,5,3,4,4,5],'Tier 2':[3,3,4,5,4,5,4,6,4,5,4,5],'Tier 3':[2,3,4,4,3,4,3,4,3,4,3,4],'Tier 4':[1,2,2,2,3,2,3,2,2,2,2,2]};
 const TIER_DIST={labels:['Tier 1','Tier 2','Tier 3','Tier 4'],data:[5,5,3,3],colors:['#E76E25','#0096CE','#7BC3D0','#366B98']};
 const TIER_COLORS=['#E76E25','#0096CE','#7BC3D0','#366B98'];
@@ -1361,7 +1386,7 @@ function tierScoreHTML(tiers,mi,isYTD){
     let ev,mql,sql,opp;
     if(isYTD){ev=sum(TIER_EVENTS_MI[t]);mql=Math.round(sum(D.mql)*ev/sum(D.events));sql=Math.round(sum(D.sql)*ev/sum(D.events));opp=Math.round(sum(D.opps)*ev/sum(D.events));}
     else{ev=TIER_EVENTS_MI[t][mi];mql=Math.round(D.mql[mi]*ev/D.events[mi]);sql=Math.round(D.sql[mi]*ev/D.events[mi]);opp=Math.round(D.opps[mi]*ev/D.events[mi]);}
-    return`<div class="ts ${classes[k]}"><div class="ts-lbl">${t}</div><div class="ts-events">${ev} <span style="font-size:13px;font-weight:400;color:var(--muted)">${isYTD?'YTD events':'events'}</span></div><div class="ts-detail">${mql} MQL &nbsp;·&nbsp; ${sql} SQL &nbsp;·&nbsp; ${opp} Opp</div><div class="ts-roi">ROI: ${ROI_T[k].roi>0?'$'+ROI_T[k].roi.toLocaleString():'—'}</div></div>`;
+    return`<div class="ts ${classes[k]}"><div class="ts-lbl">${t}</div><div class="ts-events">${ev} <span style="font-size:13px;font-weight:400;color:var(--muted)">${isYTD?'YTD events':'events'}</span></div><div class="ts-detail">${mql} MQL &nbsp;·&nbsp; ${sql} SQL &nbsp;·&nbsp; ${opp} Opp</div><div class="ts-roi">Cost/MQL: ${ROI_T[k].roi>0?'$'+ROI_T[k].roi.toLocaleString():'—'}</div></div>`;
   }).join('');
 }
 function tierScoreHTMLFromEvents(tiers, events){
@@ -1374,7 +1399,10 @@ function tierScoreHTMLFromEvents(tiers, events){
     const opp = te.reduce((s,e)=>s+(Number(e.opps)||0),0);
     const roiVals = te.map(e=>Number(e.roi)||0).filter(v=>v!==0);
     const avgRoi = roiVals.length ? Math.round(roiVals.reduce((a,b)=>a+b,0)/roiVals.length) : 0;
-    return`<div class="ts ${classes[k]}"><div class="ts-lbl">${t}</div><div class="ts-events">${ev} <span style="font-size:13px;font-weight:400;color:var(--muted)">events</span></div><div class="ts-detail">${mql} MQL &nbsp;·&nbsp; ${sql} SQL &nbsp;·&nbsp; ${opp} Opp</div><div class="ts-roi">ROI: ${avgRoi>0?'$'+avgRoi.toLocaleString():'—'}</div></div>`;
+    const totActualT = te.reduce((s,e)=>s+(Number(e.actual)||0),0);
+    const totMqlt    = te.reduce((s,e)=>s+(Number(e.mql)||0),0);
+    const cpmql = (totActualT>0&&totMqlt>0) ? Math.round(totActualT/totMqlt) : 0;
+    return`<div class="ts ${classes[k]}"><div class="ts-lbl">${t}</div><div class="ts-events">${ev} <span style="font-size:13px;font-weight:400;color:var(--muted)">events</span></div><div class="ts-detail">${mql} MQL &nbsp;·&nbsp; ${sql} SQL &nbsp;·&nbsp; ${opp} Opp</div><div class="ts-roi">Cost/MQL: ${cpmql>0?'$'+cpmql.toLocaleString():'—'}</div></div>`;
   }).join('');
 }
 function goalHTML(isYTD,prefix){
@@ -1412,12 +1440,13 @@ function renderYTD(){
     destroyChart('ytdSrcChart');
     destroyChart('ytdTierMonthChart');
     destroyChart('ytdROIChart');
+    destroyChart('summaryEventsChart');
     setText('ytd-total-events','—');
     setText('ytd-total-mql','—');
     setText('ytd-total-opps','—');
     setText('ytd-total-rev','—');
     // KPIs
-    ['yk0','yk1','yk2','yk3','yk4','yk5','yk6','yk7'].forEach(id=>setText(id,'—'));
+    ['yk0','yk1','yk2','yk3','yk4','yk5','yk6','yk7','yk8','yk-fybud'].forEach(id=>setText(id,'—'));
     setHTML('ytdTierGrid', '<div style="padding:18px;color:var(--muted);font-size:13px">Upload the source spreadsheet to populate YTD reporting.</div>');
     // Goals + ROI rows
     setHTML('ytdGoalDuo', '');
@@ -1432,7 +1461,7 @@ function renderYTD(){
   const totActual=sum(D.actual);
   const totBudget=D.budget.reduce((s,b,i)=>s+(D.actual[i]>0?b:0),0);
   const totVar=D.variance.reduce((s,v,i)=>s+(D.actual[i]>0?v:0),0);
-  const avgROI=Math.round(sum(D.roi)/Math.max(D.roi.filter(r=>r>0).length,1));
+  const avgCPMQL=Math.round(sum(D.actual)/Math.max(sum(D.mql),1));
 
   // Hero
   setText('ytd-total-events', totEvents);
@@ -1440,18 +1469,39 @@ function renderYTD(){
   setText('ytd-total-opps', totOpps);
   setText('ytd-total-rev', '$'+totActual.toLocaleString());
 
-  // KPIs
-  setKPI('y',0,totEvents,totEvents,'');
+  // 2026 Summary — Total Events & Full Year Budget
+  const fullYearBudget = sum(D.budget);
+  setText('yk0', totEvents);
+  const el_yd0 = $s('yd0'); if(el_yd0){el_yd0.textContent='Full year';el_yd0.className='kpi-dl neu';}
+  setText('yk-fybud', '$'+fullYearBudget.toLocaleString());
+  const el_fybud = $s('yd-fybud'); if(el_fybud){el_fybud.textContent='All '+totEvents+' events';el_fybud.className='kpi-dl neu';}
+
+  // Events per Month mini-bar chart (2026 Summary)
+  destroyChart('summaryEventsChart');
+  {const _cv=$s('summaryEventsChart'); if(_cv) charts.summaryEvents = MiniCharts.create(_cv,{
+    type:'bar',
+    data:{labels:MO.map(m=>m.slice(0,3)),datasets:[{data:D.events,backgroundColor:D.events.map((_,i)=>i===new Date().getMonth()?'#E76E25':'#0096CE'),borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>ctx.parsed.y+' events'}}},
+      scales:{x:{ticks:{font:{family:"'Aptos','Calibri',sans-serif",size:9},color:'#366B98',autoSkip:false},grid:{display:false}},
+              y:{ticks:{font:FONT,color:'#366B98',precision:0},grid:{color:'rgba(0,0,0,.05)'}}}}
+  });}
+
+  // YTD KPIs (7 cards — no Total Events, no Budgeted)
+  const totCPOpp = (totActual>0&&totOpps>0) ? Math.round(totActual/totOpps) : 0;
   setKPI('y',1,totMQL,totMQL.toLocaleString(),'');
   setKPI('y',2,totSQL,totSQL.toLocaleString(),'');
   setKPI('y',3,totOpps,totOpps,'');
-  setKPI('y',4,totBudget,totActual>0?'$'+totBudget.toLocaleString():'—','');
   setKPI('y',5,totActual,'$'+totActual.toLocaleString(),'');
-  setKPI('y',6,avgROI,'$'+avgROI.toLocaleString(),'');
+  setKPI('y',6,avgCPMQL,avgCPMQL>0?'$'+avgCPMQL.toLocaleString():'—','');
   const varSign=totVar>=0?'+':'';
   setText('yk7', totActual>0 ? varSign+'$'+Math.abs(totVar).toLocaleString() : '—');
   setStyle('yk7','color',totActual>0?(totVar<=0?'var(--c2)':'var(--c8)'):'var(--muted)');
-  ['yd0','yd1','yd2','yd3','yd4','yd5','yd6','yd7'].forEach(id=>{const el=$s(id);if(el){el.textContent='Full year aggregate';el.className='kpi-dl neu';}});
+  setText('yk8', totCPOpp>0?'$'+totCPOpp.toLocaleString():'—');
+
+  // Footer labels — "YTD Total" for count/money KPIs, "YTD Average" for cost KPIs
+  ['yd1','yd2','yd3','yd5','yd7'].forEach(id=>{const el=$s(id);if(el){el.textContent='YTD Total';el.className='kpi-dl neu';}});
+  ['yd6','yd8'].forEach(id=>{const el=$s(id);if(el){el.textContent='YTD Average';el.className='kpi-dl neu';}});
 
   // Tier scorecard
   setHTML('ytdTierGrid', tierScoreHTML(['Tier 1','Tier 2','Tier 3','Tier 4'],null,true));
@@ -1516,7 +1566,7 @@ function renderYTD(){
   });}
 
   destroyChart('ytdROIChart');
-  {const _cv=(document.getElementById('ytdROIChart'));if(_cv)charts.ytdROI=MiniCharts.create(_cv,{type:'bar',data:{labels:ROI_T.map(r=>r.lbl),datasets:[{data:ROI_T.map(r=>r.roi),backgroundColor:ROI_T.map(r=>r.c),borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>'$'+ctx.parsed.x.toLocaleString()}}},scales:{x:{ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()},grid:{color:'rgba(0,0,0,.05)'}},y:{reverse:true,ticks:{font:FONT,color:TC},grid:{display:false}}}}});}
+  {const _cv=(document.getElementById('ytdROIChart'));if(_cv)charts.ytdROI=MiniCharts.create(_cv,{type:'bar',data:{labels:ROI_T.map(r=>r.lbl),datasets:[{data:ROI_T.map(r=>r.roi),backgroundColor:ROI_T.map(r=>r.c),borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>'Cost/MQL: $'+ctx.parsed.x.toLocaleString()}}},scales:{x:{ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()},grid:{color:'rgba(0,0,0,.05)'}},y:{reverse:true,ticks:{font:FONT,color:TC},grid:{display:false}}}}});}
 }
 
 /* ══ MONTHLY PAGE ══ */
@@ -1575,6 +1625,8 @@ function renderMonthly(mi_raw){
   const totVar     = totActual - totBudget;
   const roiVals    = mEvents.map(e=>Number(e.roi)||0).filter(v=>v>0);
   const avgROI     = roiVals.length ? Math.round(roiVals.reduce((a,b)=>a+b,0)/roiVals.length) : 0;
+  /* Cost per MQL = total actual spend / total MQLs for the month */
+  const avgCPMQL   = (totActual > 0 && totMQL > 0) ? Math.round(totActual / totMQL) : 0;
 
   /* ── KPIs ── */
   const prevMi = mi > 0 ? mi-1 : null;
@@ -1596,6 +1648,9 @@ function renderMonthly(mi_raw){
   const prevActual = prevEvents.reduce((s,e)=>s+(Number(e.actual)||0),0);
   const prevROIv   = prevEvents.map(e=>Number(e.roi)||0).filter(v=>v>0);
   const prevROI    = prevROIv.length ? Math.round(prevROIv.reduce((a,b)=>a+b,0)/prevROIv.length) : 0;
+  const prevActualM = prevEvents.reduce((s,e)=>s+(Number(e.actual)||0),0);
+  const prevMQLM    = prevEvents.reduce((s,e)=>s+(Number(e.mql)||0),0);
+  const prevCPMQL   = (prevActualM > 0 && prevMQLM > 0) ? Math.round(prevActualM / prevMQLM) : 0;
 
   setKPI('k',0,totEvents, totEvents,                     momDelta(totEvents, prevEvents.length, false));
   setKPI('k',1,totMQL,    totMQL.toLocaleString(),        momDelta(totMQL,    prevMQL,   false));
@@ -1603,7 +1658,7 @@ function renderMonthly(mi_raw){
   setKPI('k',3,totOpps,   totOpps.toLocaleString(),       momDelta(totOpps,   prevOpps,  false));
   setKPI('k',4,totBudget, '$'+totBudget.toLocaleString(), momDelta(totBudget, prevBudget,true));
   setKPI('k',5,totActual, '$'+totActual.toLocaleString(), momDelta(totActual, prevActual,true));
-  setKPI('k',6,avgROI,    avgROI>0?'$'+avgROI.toLocaleString():'—', momDelta(avgROI, prevROI, false));
+  setKPI('k',6,avgCPMQL,  avgCPMQL>0?'$'+avgCPMQL.toLocaleString():'—', momDelta(avgCPMQL, prevCPMQL, false));
   const varSign = totVar >= 0 ? '+' : '';
   setText('kv7', '$' + Math.abs(totVar).toLocaleString());
   setStyle('kv7','color', totVar <= 0 ? 'var(--c2)' : 'var(--c8)');
@@ -1711,16 +1766,24 @@ function renderMonthly(mi_raw){
     });
   }
 
-  /* ── 2. ROI BY TIER (horizontal bar + key rows) ── */
+  /* ── 2. COST PER MQL BY TIER (horizontal bar + key rows) ── */
   const roiColors = ['#E76E25','#0096CE','#7BC3D0','#366B98']; /* Tier 1→4 */
-  const roiByTier = {};
-  TIERS.forEach(t => { roiByTier[t] = []; });
-  mEvents.forEach(e => { if(roiByTier[e.tier] && (Number(e.roi)||0)>0) roiByTier[e.tier].push(Number(e.roi)); });
-  /* Build parallel arrays — index k is consistent across chart bars and key rows */
+  const cpmqlByTierM = {};
+  TIERS.forEach(t => { cpmqlByTierM[t] = {actual:0, mql:0}; });
+  mEvents.forEach(e => {
+    if(cpmqlByTierM[e.tier]) {
+      cpmqlByTierM[e.tier].actual += Number(e.actual)||0;
+      cpmqlByTierM[e.tier].mql   += Number(e.mql)||0;
+    }
+  });
+  /* Build parallel arrays */
   const roiLabels = TIERS;
-  const roiAvgs   = TIERS.map(t => roiByTier[t].length ? Math.round(roiByTier[t].reduce((a,b)=>a+b,0)/roiByTier[t].length) : 0);
-  const roiHas    = TIERS.map(t => roiByTier[t].length > 0);
-  /* Key rows rendered top-to-bottom: Tier 1, Tier 2, Tier 3, Tier 4 */
+  const roiAvgs   = TIERS.map(t => {
+    const d = cpmqlByTierM[t];
+    return (d.actual>0 && d.mql>0) ? Math.round(d.actual/d.mql) : 0;
+  });
+  const roiHas    = TIERS.map(t => roiAvgs[TIERS.indexOf(t)] > 0);
+  /* Key rows */
   setHTML('mROIRows', TIERS.map((t,k)=>
     `<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:2px 0">
        <span style="display:flex;align-items:center;gap:7px">
@@ -1737,7 +1800,7 @@ function renderMonthly(mi_raw){
     options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
       plugins:{legend:{display:false},
         tooltip:{titleFont:FONT,bodyFont:FONT,
-          callbacks:{label:ctx=>roiHas[ctx.dataIndex]?'Avg ROI: $'+roiAvgs[ctx.dataIndex].toLocaleString():'No data'}}},
+          callbacks:{label:ctx=>roiHas[ctx.dataIndex]?'Cost/MQL: $'+roiAvgs[ctx.dataIndex].toLocaleString():'No data'}}},
       scales:{
         x:{min:0, ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()}, grid:{color:'rgba(0,0,0,.05)'}},
         y:{reverse:true, ticks:{font:FONT,color:TC}, grid:{display:false}}
@@ -1786,12 +1849,23 @@ function renderMonthly(mi_raw){
   setHTML('mCommList', mComms.length
     ? mComms.map(e=>{
         const isLog = (e.comm||'').toLowerCase().includes('logistics');
+        /* Calculate days prior: commDate → startDate */
+        let daysPrior = null;
+        try {
+          const cd = new Date(e.commDate); const sd = new Date(e.startDate);
+          if (!isNaN(cd) && !isNaN(sd) && sd > cd) {
+            daysPrior = Math.round((sd - cd) / 86400000);
+          }
+        } catch(err) {}
+        const daysBadge = daysPrior !== null
+          ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:rgba(0,150,206,.1);color:var(--c5);margin-left:6px">⏱ ${daysPrior}d prior</span>`
+          : '';
         return`<div class="comm-row">
           <div class="comm-ico" style="background:${isLog?'rgba(54,107,152,.1)':'rgba(0,80,93,.1)'}">${isLog?'📋':'📊'}</div>
           <div style="flex:1">
-            <div><span class="badge ${isLog?'c-log':'c-pres'}">${e.comm}</span></div>
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><span class="badge ${isLog?'c-log':'c-pres'}">${e.comm}</span>${daysBadge}</div>
             <div style="font-size:12px;font-weight:600;color:var(--text);margin-top:3px">${e.name||''}</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:2px">${e.commDate}</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px">${e.commDate}${e.startDate?' → event starts '+e.startDate:''}</div>
           </div></div>`;
       }).join('')
     : `<div style="padding:16px;text-align:center;font-size:12px;color:var(--muted)">No communications logged for ${MO[mi]}.</div>`);
@@ -1944,12 +2018,14 @@ function renderEvtTable(mi){
       <td class="num cb">${e.mql||0}</td>
       <td class="num">${e.sql||0}</td>
       <td class="num cg">${e.opps||0}</td>
-      <td class="num co">${e.roi>0?'$'+(e.roi).toLocaleString():'—'}</td>
+      <td class="num co">${(()=>{ const a=Number(e.actual)||0,m=Number(e.mql)||0; return (a>0&&m>0)?'$'+Math.round(a/m).toLocaleString():'—'; })()}</td>
+      <td class="num co">${(()=>{ const a=Number(e.actual)||0,o=Number(e.opps)||0; return (a>0&&o>0)?'$'+Math.round(a/o).toLocaleString():'—'; })()}</td>
       <td class="wrap" style="min-width:200px;max-width:340px;white-space:normal;font-size:11px;line-height:1.5;color:var(--muted)">${e.trip ? `<div style="margin-bottom:4px">${sentimentBadge(e)}</div>${e.trip}` : '—'}</td>
       <td>${e.comm ? `<span class="badge c-pres">${e.comm}</span>` : '—'}</td>
       <td style="color:var(--muted);white-space:nowrap">${e.commDate||'—'}</td>
+      <td class="num" style="color:var(--c5)">${(()=>{ try{ const cd=new Date(e.commDate),sd=new Date(e.startDate); if(!isNaN(cd)&&!isNaN(sd)&&sd>cd) return Math.round((sd-cd)/86400000)+'d'; }catch(err){} return '—'; })()}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="17" style="text-align:center;padding:28px;color:var(--muted)">${HAS_SPREADSHEET ? 'No events found' : 'Upload the source spreadsheet to view event details'} for ${MO[resolvedMi]||'this month'}.</td></tr>`);
+  }).join('') || `<tr><td colspan="19" style="text-align:center;padding:28px;color:var(--muted)">${HAS_SPREADSHEET ? 'No events found' : 'Upload the source spreadsheet to view event details'} for ${MO[resolvedMi]||'this month'}.</td></tr>`);
 }
 
 /* ══ NAVIGATION ══ */
@@ -2008,7 +2084,6 @@ const CELL_CFG = [
   ['mql',       'number',   60],
   ['sql',       'number',   60],
   ['opps',      'number',   60],
-  ['roi',       'number',   80],
   ['comm',      'select',   160, ['Logistics Document','Pre-Show Brief & Document','']],
   ['commDate',  'text',     110],
   ['startDate', 'text',     110],
@@ -2063,12 +2138,22 @@ function renderGridRows(){
       }
       return `<td style="padding:0;border-bottom:1px solid rgba(220,220,220,.35)"><input type="text" data-row="${i}" data-field="${field}" value="${String(display).replace(/"/g,'&quot;')}" onchange="gridCellChange(this)" style="width:100%;padding:7px 8px;border:none;background:transparent;font-size:12px;font-family:'Aptos','Calibri',sans-serif;color:var(--text)"></td>`;
     };
+    const computedCells = (() => {
+      const actual = Number(r.actual)||0;
+      const mql    = Number(r.mql)||0;
+      const opps   = Number(r.opps)||0;
+      const cpmql  = (actual > 0 && mql > 0)  ? '$'+Math.round(actual/mql).toLocaleString()  : '—';
+      const cpopp  = (actual > 0 && opps > 0) ? '$'+Math.round(actual/opps).toLocaleString() : '—';
+      const style  = 'padding:7px 8px;text-align:right;font-size:12px;font-weight:700;color:var(--muted);background:rgba(0,80,93,.03);border-bottom:1px solid rgba(220,220,220,.35);white-space:nowrap';
+      return `<td style="${style}">${cpmql}</td><td style="${style}">${cpopp}</td>`;
+    })();
     const rowBg = i % 2 === 0 ? '#fff' : '#F8FAFB';
     return `<tr style="background:${rowBg}" onmouseenter="this.style.background='rgba(0,150,206,.04)'" onmouseleave="this.style.background='${rowBg}'">
       <td style="padding:4px 8px;border-bottom:1px solid rgba(220,220,220,.35);text-align:center">
         <button onclick="gridDeleteRow(${i})" title="Delete row" style="background:none;border:none;cursor:pointer;color:rgba(200,80,50,.6);font-size:13px;padding:2px 4px;border-radius:4px" onmouseenter="this.style.color='#c44'" onmouseleave="this.style.color='rgba(200,80,50,.6)'">🗑</button>
       </td>
       ${CELL_CFG.map(([f,t,,o])=>td(f,t,o)).join('')}
+      ${computedCells}
     </tr>`;
   }).join('');
 }
@@ -2110,7 +2195,7 @@ function gridAddRow(){
   _gridDraft.push({
     abbr:'', name:'New Event', tier:'Tier 3', source:'New for 2026',
     goal:'Lead Generation', budget:0, actual:0, variance:0,
-    mql:0, sql:0, opps:0, roi:0, comm:'', commDate:'',
+    mql:0, sql:0, opps:0, comm:'', commDate:'',
     trip:'', startDate:'', endDate:'', monthIdx:0,
     sentiment:'Neutral', status:'Completed', quarter:'', bu:'', notes:''
   });
@@ -2141,9 +2226,8 @@ function gridApply(){
   /* Recompute D aggregates from POOL */
   const blank12=()=>Array(12).fill(0);
   const newD={events:blank12(),mql:blank12(),sql:blank12(),opps:blank12(),budget:blank12(),actual:blank12(),variance:blank12(),roi:blank12()};
-  const roiSum=blank12(), roiCnt=blank12();
   const newTMI={'Tier 1':blank12(),'Tier 2':blank12(),'Tier 3':blank12(),'Tier 4':blank12()};
-  const srcCnt={}, roiByTier={'Tier 1':[],'Tier 2':[],'Tier 3':[],'Tier 4':[]};
+  const srcCnt={}, cpmqlByTier={'Tier 1':[],'Tier 2':[],'Tier 3':[],'Tier 4':[]};
   const goalCnt={'Relationship Building':0,'Lead Generation':0};
 
   POOL.forEach(e=>{
@@ -2156,13 +2240,19 @@ function gridApply(){
     newD.budget[m]+=(Number(e.budget)||0);
     newD.actual[m]+=(Number(e.actual)||0);
     newD.variance[m]+=(Number(e.variance)||0);
-    if((Number(e.roi)||0)>0){roiSum[m]+=(Number(e.roi)||0);roiCnt[m]++;}
     if(newTMI[e.tier]) newTMI[e.tier][m]++;
     const src=e.source||'Other'; srcCnt[src]=(srcCnt[src]||0)+1;
-    if(roiByTier[e.tier]&&(Number(e.roi)||0)>0) roiByTier[e.tier].push(Number(e.roi));
+    const a=Number(e.actual)||0, mql=Number(e.mql)||0;
+    if(cpmqlByTier[e.tier]&&a>0&&mql>0) cpmqlByTier[e.tier].push(Math.round(a/mql));
     if(e.goal in goalCnt) goalCnt[e.goal]++;
   });
-  for(let m=0;m<12;m++) newD.roi[m]=roiCnt[m]?Math.round(roiSum[m]/roiCnt[m]):0;
+  /* D.roi stores monthly avg cost-per-MQL (actual/mql weighted across events with both values) */
+  for(let m=0;m<12;m++){
+    const evs=POOL.filter(e=>Number(e.monthIdx)===m&&(Number(e.actual)||0)>0&&(Number(e.mql)||0)>0);
+    newD.roi[m]=evs.length?Math.round(evs.reduce((s,e)=>(Number(e.actual)||0)/((Number(e.mql)||0)),0)/evs.length):0;
+    /* Simpler: total actual / total mql for month */
+    newD.roi[m]=(newD.actual[m]>0&&newD.mql[m]>0)?Math.round(newD.actual[m]/newD.mql[m]):0;
+  }
 
   Object.assign(D, newD);
   Object.assign(TIER_EVENTS_MI, newTMI);
@@ -2173,7 +2263,7 @@ function gridApply(){
 
   ROI_T.length=0;
   ['Tier 1','Tier 2','Tier 3','Tier 4'].forEach((t,k)=>{
-    const v=roiByTier[t]; const avg=v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):0;
+    const v=cpmqlByTier[t]; const avg=v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):0;
     ROI_T.push({lbl:t,roi:avg,c:['#E76E25','#0096CE','#7BC3D0','#366B98'][k]});
   });
 
@@ -2260,9 +2350,8 @@ function bootstrapFromPool(){
   /* Compute D aggregates */
   const blank12=()=>Array(12).fill(0);
   const newD={events:blank12(),mql:blank12(),sql:blank12(),opps:blank12(),budget:blank12(),actual:blank12(),variance:blank12(),roi:blank12()};
-  const roiSum=blank12(),roiCnt=blank12();
   const newTMI={'Tier 1':blank12(),'Tier 2':blank12(),'Tier 3':blank12(),'Tier 4':blank12()};
-  const srcCnt={},roiByTier={'Tier 1':[],'Tier 2':[],'Tier 3':[],'Tier 4':[]};
+  const srcCnt={},cpmqlByTier={'Tier 1':[],'Tier 2':[],'Tier 3':[],'Tier 4':[]};
   const goalCnt={'Relationship Building':0,'Lead Generation':0};
 
   POOL.forEach(e=>{
@@ -2275,13 +2364,14 @@ function bootstrapFromPool(){
     newD.budget[m]+=(Number(e.budget)||0);
     newD.actual[m]+=(Number(e.actual)||0);
     newD.variance[m]+=(Number(e.variance)||0);
-    if((Number(e.roi)||0)>0){roiSum[m]+=(Number(e.roi)||0);roiCnt[m]++;}
     if(newTMI[e.tier]) newTMI[e.tier][m]++;
     const src=e.source||'Other'; srcCnt[src]=(srcCnt[src]||0)+1;
-    if(roiByTier[e.tier]&&(Number(e.roi)||0)>0) roiByTier[e.tier].push(Number(e.roi));
+    const a=Number(e.actual)||0, mql=Number(e.mql)||0;
+    if(cpmqlByTier[e.tier]&&a>0&&mql>0) cpmqlByTier[e.tier].push(Math.round(a/mql));
     if(e.goal in goalCnt) goalCnt[e.goal]++;
   });
-  for(let m=0;m<12;m++) newD.roi[m]=roiCnt[m]?Math.round(roiSum[m]/roiCnt[m]):0;
+  /* D.roi = monthly total actual / total mql = cost per MQL for that month */
+  for(let m=0;m<12;m++) newD.roi[m]=(newD.actual[m]>0&&newD.mql[m]>0)?Math.round(newD.actual[m]/newD.mql[m]):0;
   Object.assign(D,newD);
   Object.assign(TIER_EVENTS_MI,newTMI);
 
@@ -2291,7 +2381,7 @@ function bootstrapFromPool(){
 
   ROI_T.length=0;
   ['Tier 1','Tier 2','Tier 3','Tier 4'].forEach((t,k)=>{
-    const v=roiByTier[t];const avg=v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):0;
+    const v=cpmqlByTier[t];const avg=v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):0;
     ROI_T.push({lbl:t,roi:avg,c:['#E76E25','#0096CE','#7BC3D0','#366B98'][k]});
   });
 
