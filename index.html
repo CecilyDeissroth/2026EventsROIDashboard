@@ -849,7 +849,7 @@ td.wrap{white-space:normal;min-width:160px}
     <div class="kpi ytd-k0" style="padding:20px 20px 16px">
       <div class="kpi-lbl">Total Events</div>
       <div class="kpi-val" style="font-size:36px;line-height:1.1;margin-top:8px" id="yk0">—</div>
-      <div class="kpi-dl neu" style="margin-top:8px" id="yd0">Full year</div>
+      <div class="kpi-dl neu" style="margin-top:8px" id="yd0"></div>
     </div>
     <div class="kpi ytd-k4" style="padding:20px 20px 16px">
       <div class="kpi-lbl">Full Year Budget</div>
@@ -865,9 +865,25 @@ td.wrap{white-space:normal;min-width:160px}
     </div>
   </div>
   <!-- Row 2: Events per Month chart -->
-  <div class="panel" style="padding:12px 16px;margin-bottom:16px">
+  <div class="panel" style="padding:12px 16px;margin-bottom:12px">
     <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Events per Month</div>
     <div style="position:relative;height:110px"><canvas id="summaryEventsChart" style="width:100%;height:100%"></canvas></div>
+  </div>
+  <!-- Row 3: Budget Origin + Events per Tier -->
+  <div class="g2" style="margin-bottom:16px">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Budget Origin <span class="pt-r">YTD</span></div>
+      <div class="ps">Whether event budgets are based on 2025 actuals or are new for 2026</div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 150px;gap:12px;align-items:center;min-height:160px">
+        <div style="position:relative;height:100%"><canvas id="ytdSrcChart" style="width:100%;height:100%"></canvas></div>
+        <div class="dleg" id="ytdSrcLeg" style="align-self:center"></div>
+      </div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Events per Tier <span class="pt-r">by month</span></div>
+      <div class="ps">Monthly event count stacked by tier — full year</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:160px"><canvas id="ytdTierMonthChart" style="width:100%;height:100%"></canvas></div>
+    </div>
   </div>
 
   <!-- YTD KPIs -->
@@ -883,49 +899,25 @@ td.wrap{white-space:normal;min-width:160px}
   </div>
 
   <!-- YTD CHARTS ROW 1: Funnel + Spend -->
-  <div class="sec">Annual Trend &amp; Mix</div>
+  <div class="sec">YTD Performance by Month</div>
   <div class="g2">
     <div class="panel" style="display:flex;flex-direction:column">
-      <div class="pt">MQL → SQL → Opportunity — Full Year <span class="pt-r">Jan–Dec 2026</span></div>
+      <div class="pt">MQL → SQL → Opportunity <span class="pt-r">Jan–Dec 2026</span></div>
       <div class="ps">Monthly funnel performance across all tiers and events</div>
       <div style="flex:1;min-height:0;position:relative;min-height:240px"><canvas id="ytdFunnelChart" style="width:100%;height:100%"></canvas></div>
     </div>
     <div class="panel" style="display:flex;flex-direction:column">
-      <div class="pt">Budget vs Actual — Monthly</div>
+      <div class="pt">Budget vs Actual</div>
       <div class="ps">Budgeted vs actual spend by month</div>
       <div style="flex:1;min-height:0;position:relative;min-height:240px"><canvas id="ytdSpendChart" style="width:100%;height:100%"></canvas></div>
     </div>
   </div>
 
-  <!-- YTD CHARTS ROW 2: Event Origin + Events per Tier -->
-  <div class="g2">
-    <div class="panel" style="display:flex;flex-direction:column">
-      <div class="pt">Budget Origin <span class="pt-r">YTD</span></div>
-      <div class="ps">Whether event budgets are based on 2025 actuals or are new for 2026</div>
-      <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 150px;gap:12px;align-items:center;min-height:180px">
-        <div style="position:relative;height:100%"><canvas id="ytdSrcChart" style="width:100%;height:100%"></canvas></div>
-        <div class="dleg" id="ytdSrcLeg" style="align-self:center"></div>
-      </div>
-    </div>
-    <div class="panel" style="display:flex;flex-direction:column">
-      <div class="pt">Events per Tier <span class="pt-r">by month</span></div>
-      <div class="ps">Monthly event count stacked by tier — full year</div>
-      <div style="flex:1;min-height:0;position:relative;min-height:180px"><canvas id="ytdTierMonthChart" style="width:100%;height:100%"></canvas></div>
-    </div>
-  </div>
-
-  <!-- YTD CHARTS ROW 3: Monthly Opportunity Value by Tier -->
-  <div class="g2">
-    <div class="panel" style="display:flex;flex-direction:column">
-      <div class="pt">Monthly Opportunity Value <span class="pt-r">by tier</span></div>
-      <div class="ps">Total opportunity value per month, color-coded by event tier</div>
-      <div style="flex:1;min-height:0;position:relative;min-height:240px"><canvas id="ytdOppValueChart" style="width:100%;height:100%"></canvas></div>
-    </div>
-    <div class="panel" style="display:flex;flex-direction:column">
-      <div class="pt">MQL → SQL → Opportunity — Full Year <span class="pt-r">Jan–Dec 2026</span></div>
-      <div class="ps">Monthly funnel performance across all tiers and events</div>
-      <div style="flex:1;min-height:0;position:relative;min-height:240px"><canvas id="ytdFunnelChart" style="width:100%;height:100%"></canvas></div>
-    </div>
+  <!-- YTD CHARTS ROW 2: Monthly Opportunity Value by Tier -->
+  <div class="panel" style="display:flex;flex-direction:column;margin-bottom:16px">
+    <div class="pt">Monthly Opportunity Value <span class="pt-r">by tier</span></div>
+    <div class="ps">Total opportunity value per month, color-coded by event tier</div>
+    <div style="flex:1;min-height:0;position:relative;min-height:220px"><canvas id="ytdOppValueChart" style="width:100%;height:100%"></canvas></div>
   </div>
 
   <!-- YTD TIER SCORECARD -->
@@ -1571,9 +1563,9 @@ function renderYTD(){
   // 2026 Summary — Total Events & Full Year Budget
   const fullYearBudget = sum(D.budget);
   setText('yk0', totEvents);
-  const el_yd0 = $s('yd0'); if(el_yd0){el_yd0.textContent='Full year';el_yd0.className='kpi-dl neu';}
+  const el_yd0 = $s('yd0'); if(el_yd0){el_yd0.textContent='';el_yd0.className='kpi-dl neu';}
   setText('yk-fybud', '$'+fullYearBudget.toLocaleString());
-  const el_fybud = $s('yd-fybud'); if(el_fybud){el_fybud.textContent='All '+totEvents+' events';el_fybud.className='kpi-dl neu';}
+  const el_fybud = $s('yd-fybud'); if(el_fybud){el_fybud.textContent='';el_fybud.className='kpi-dl neu';}
 
   // Events per Month bar chart (2026 Summary) — y-axis 0–15, steps of 5
   destroyChart('summaryEventsChart');
