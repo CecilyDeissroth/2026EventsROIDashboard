@@ -61,8 +61,7 @@ const MiniCharts = {
     const getTooltip = () => {
       if (!tooltip) {
         tooltip = document.createElement('div');
-        tooltip.style.cssText = 'position:absolute;z-index:9999;pointer-events:none;background:rgba(7,51,80,.93);color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;font-family:\'Aptos\',\'Calibri\',sans-serif;line-height:1.55;box-shadow:0 4px 20px rgba(0,0,0,.3);transition:opacity .1s;opacity:0;max-width:240px';
-        document.getElementById('app').appendChild(tooltip);
+        tooltip.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;background:rgba(7,51,80,.93);color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;font-family:\'Aptos\',\'Calibri\',sans-serif;line-height:1.55;box-shadow:0 4px 20px rgba(0,0,0,.3);transition:opacity .1s;opacity:0;max-width:220px';
         document.body.appendChild(tooltip);
       }
       return tooltip;
@@ -73,16 +72,16 @@ const MiniCharts = {
       tip.innerHTML = (title ? `<div style="font-weight:700;font-size:10px;letter-spacing:.4px;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:4px">${title}</div>` : '') +
         lines.map(l=>`<div style="display:flex;align-items:center;gap:4px">${l}</div>`).join('');
       tip.style.opacity = '1';
-      /* Absolute positioning relative to #app container */
-      const app = document.getElementById('app');
-      const ar = app ? app.getBoundingClientRect() : {left:0,top:0};
-      const scrollY = app ? app.scrollTop : (window.scrollY||0);
-      const W2 = app ? ar.width : window.innerWidth;
-      let lx = cx - ar.left + 14, ly = cy - ar.top + scrollY - 10;
-      if (lx + 240 > W2 - 8) lx = cx - ar.left - 250;
+      /* Position near mouse using fixed coords — clamp to viewport */
+      const tipW = 224, tipH = tip.offsetHeight || 60;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      let lx = cx + 14, ly = cy - 10;
+      if (lx + tipW > vw - 8) lx = cx - tipW - 8;
       if (lx < 4) lx = 4;
+      if (ly + tipH > vh - 8) ly = cy - tipH - 4;
+      if (ly < 4) ly = 4;
       tip.style.left = lx + 'px';
-      tip.style.top  = Math.max(4, ly) + 'px';
+      tip.style.top  = ly + 'px';
     };
 
     const hideTooltip = () => {
@@ -816,20 +815,23 @@ td.wrap{white-space:normal;min-width:160px}
   <!-- 2026 SUMMARY -->
   <div class="sec">2026 Summary</div>
   <!-- Row 1: stat blocks + Event Purpose -->
-  <div style="display:grid;grid-template-columns:auto auto auto;gap:12px;margin-bottom:12px;align-items:stretch">
-    <div class="kpi ytd-k0" style="min-width:120px;padding:12px 14px 10px">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;align-items:stretch">
+    <div class="kpi ytd-k0" style="padding:20px 20px 16px">
       <div class="kpi-lbl">Total Events</div>
-      <div class="kpi-val" style="font-size:18px" id="yk0">—</div>
-      <div class="kpi-dl neu" id="yd0">Full year</div>
+      <div class="kpi-val" style="font-size:36px;line-height:1.1;margin-top:8px" id="yk0">—</div>
+      <div class="kpi-dl neu" style="margin-top:8px" id="yd0">Full year</div>
     </div>
-    <div class="kpi ytd-k4" style="min-width:140px;padding:12px 14px 10px">
+    <div class="kpi ytd-k4" style="padding:20px 20px 16px">
       <div class="kpi-lbl">Full Year Budget</div>
-      <div class="kpi-val" style="font-size:18px" id="yk-fybud">—</div>
-      <div class="kpi-dl neu" id="yd-fybud">All events budgeted</div>
+      <div class="kpi-val" style="font-size:28px;line-height:1.1;margin-top:8px" id="yk-fybud">—</div>
+      <div class="kpi-dl neu" style="margin-top:8px" id="yd-fybud">All events budgeted</div>
     </div>
-    <div class="panel" style="padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;min-width:160px">
-      <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Event Purpose</div>
-      <div class="goal-duo" id="summaryGoalDuo" style="margin:0;gap:6px"></div>
+    <div class="panel" style="padding:0;display:flex;flex-direction:column;overflow:hidden;position:relative">
+      <div style="height:3px;background:var(--c5);border-radius:3px 3px 0 0;flex-shrink:0"></div>
+      <div style="padding:14px 16px 14px;flex:1;display:flex;flex-direction:column;justify-content:space-between">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)">Event Purpose</div>
+        <div class="goal-duo" id="summaryGoalDuo" style="margin:8px 0 0;gap:6px"></div>
+      </div>
     </div>
   </div>
   <!-- Row 2: Events per Month chart -->
@@ -2213,8 +2215,15 @@ const CELL_CFG = [
 ];
 
 function buildGrid(){
-  /* Deep-copy POOL into draft */
+  /* Deep-copy POOL into draft, then sort chronologically by startDate */
   _gridDraft = POOL.map(e => ({...e}));
+  _gridDraft.sort((a, b) => {
+    const da = a.startDate ? new Date(a.startDate) : new Date('9999-12-31');
+    const db = b.startDate ? new Date(b.startDate) : new Date('9999-12-31');
+    if (isNaN(da)) return 1;
+    if (isNaN(db)) return -1;
+    return da - db;
+  });
   renderGridRows();
 }
 
