@@ -793,7 +793,10 @@ td.wrap{white-space:normal;min-width:160px}
     <!-- Events per Month chart -->
     <div class="panel" style="padding:14px 18px;display:flex;flex-direction:column;min-height:100px">
       <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Events per Month</div>
-      <div style="flex:1;min-height:0;position:relative;min-height:70px"><canvas id="summaryEventsChart" style="width:100%;height:100%"></canvas></div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 130px;gap:10px;align-items:center;min-height:90px">
+        <div style="position:relative;height:100%;min-height:90px"><canvas id="summaryEventsChart" style="width:100%;height:100%"></canvas></div>
+        <div id="summaryEventsLeg" style="display:flex;flex-direction:column;gap:3px;align-self:center;overflow:hidden"></div>
+      </div>
     </div>
   </div>
 
@@ -849,8 +852,8 @@ td.wrap{white-space:normal;min-width:160px}
     <div class="tier-grid" id="ytdTierGrid"></div>
   </div>
 
-  <!-- YTD GOAL + ROI -->
-  <div class="g2">
+  <!-- YTD GOAL + ROI + COST PER OPP -->
+  <div class="g3e">
     <div class="panel">
       <div class="pt">Event Purpose</div>
       <div class="ps">Relationship Building vs Lead Generation event counts</div>
@@ -861,6 +864,11 @@ td.wrap{white-space:normal;min-width:160px}
       <div class="pt">Cost per MQL by Tier — YTD Average</div>
       <div class="ps">Average cost per MQL per event tier across all 2026 events</div>
       <div style="position:relative;height:185px"><canvas id="ytdROIChart" style="width:100%;height:100%"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Cost per Opp by Tier — YTD Average</div>
+      <div class="ps">Average cost per opportunity per event tier across all 2026 events</div>
+      <div style="position:relative;height:185px"><canvas id="ytdCPOppChart" style="width:100%;height:100%"></canvas></div>
     </div>
   </div>
 
@@ -882,6 +890,7 @@ td.wrap{white-space:normal;min-width:160px}
             <th>Actuals (USD)</th>
             <th>Variance</th>
             <th>Cost per MQL</th>
+            <th>Cost per Opp</th>
           </tr>
         </thead>
         <tbody id="ytdSummaryBody"></tbody>
@@ -939,12 +948,12 @@ td.wrap{white-space:normal;min-width:160px}
     </div>
   </div>
 
-  <!-- SOURCE + ROI + TIER MIX -->
-  <div class="g3e">
+  <!-- SOURCE + COST PER MQL + COST PER OPP + TIER MIX -->
+  <div class="g4">
     <div class="panel" style="display:flex;flex-direction:column">
       <div class="pt">Budget Origin <span class="pt-r">by source</span></div>
       <div class="ps">Whether event budgets are based on 2025 actuals or are new for 2026</div>
-      <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 140px;gap:10px;align-items:center">
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center">
         <div style="position:relative;height:100%;min-height:140px"><canvas id="mSrcChart" style="width:100%;height:100%"></canvas></div>
         <div class="dleg" id="mSrcLeg" style="align-self:center"></div>
       </div>
@@ -954,6 +963,12 @@ td.wrap{white-space:normal;min-width:160px}
       <div class="ps">Average cost per MQL per event tier for this month</div>
       <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="mROIChart" style="width:100%;height:100%"></canvas></div>
       <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;flex-shrink:0" id="mROIRows"></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Cost per Opp by Tier</div>
+      <div class="ps">Average cost per opportunity per event tier for this month</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="mCPOppChart" style="width:100%;height:100%"></canvas></div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;flex-shrink:0" id="mCPOppRows"></div>
     </div>
     <div class="panel" style="display:flex;flex-direction:column">
       <div class="pt">Tier Distribution <span class="pt-r" id="tierDistLbl"></span></div>
@@ -1068,14 +1083,14 @@ td.wrap{white-space:normal;min-width:160px}
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">MQLs</th>
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">SQLs</th>
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Opps</th>
-            <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Cost/MQL</th>
-<th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Cost/Opp</th>
 <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Comm Type</th>
 <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:100px">Comm Date</th>
 <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:100px">Start Date</th>
             <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:100px">End Date</th>
             <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Sentiment</th>
             <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:280px">Trip Report</th>
+            <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--c5);border-bottom:2px solid var(--c7);white-space:nowrap;background:rgba(0,150,206,.04)">Cost/MQL</th>
+            <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--c5);border-bottom:2px solid var(--c7);white-space:nowrap;background:rgba(0,150,206,.04)">Cost/Opp</th>
           </tr>
         </thead>
         <tbody id="gridBody"></tbody>
@@ -1440,6 +1455,7 @@ function renderYTD(){
     destroyChart('ytdSrcChart');
     destroyChart('ytdTierMonthChart');
     destroyChart('ytdROIChart');
+    destroyChart('ytdCPOppChart');
     destroyChart('summaryEventsChart');
     setText('ytd-total-events','—');
     setText('ytd-total-mql','—');
@@ -1476,16 +1492,28 @@ function renderYTD(){
   setText('yk-fybud', '$'+fullYearBudget.toLocaleString());
   const el_fybud = $s('yd-fybud'); if(el_fybud){el_fybud.textContent='All '+totEvents+' events';el_fybud.className='kpi-dl neu';}
 
-  // Events per Month mini-bar chart (2026 Summary)
+  // Events per Month doughnut chart (2026 Summary)
   destroyChart('summaryEventsChart');
-  {const _cv=$s('summaryEventsChart'); if(_cv) charts.summaryEvents = MiniCharts.create(_cv,{
-    type:'bar',
-    data:{labels:MO.map(m=>m.slice(0,3)),datasets:[{data:D.events,backgroundColor:D.events.map((_,i)=>i===new Date().getMonth()?'#E76E25':'#0096CE'),borderRadius:3}]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>ctx.parsed.y+' events'}}},
-      scales:{x:{ticks:{font:{family:"'Aptos','Calibri',sans-serif",size:9},color:'#366B98',autoSkip:false},grid:{display:false}},
-              y:{ticks:{font:FONT,color:'#366B98',precision:0},grid:{color:'rgba(0,0,0,.05)'}}}}
-  });}
+  {
+    const curMo = new Date().getMonth();
+    const evPalette = ['#003B45','#00505D','#073350','#366B98','#0096CE','#7BC3D0','#E76E25','#00505D','#003B45','#366B98','#073350','#0096CE'];
+    const evColors = evPalette.map((c,i) => i === curMo ? '#E76E25' : c);
+    const _cv=$s('summaryEventsChart');
+    if(_cv) charts.summaryEvents = MiniCharts.create(_cv,{
+      type:'doughnut',
+      data:{labels:MO.map(m=>m.slice(0,3)),datasets:[{data:D.events,backgroundColor:evColors,borderWidth:2,borderColor:'#fff',hoverOffset:5}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'50%',
+        plugins:{legend:{display:false},
+          tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>ctx.label+': '+ctx.parsed+' events'}}}}
+    });
+    const legEl = $s('summaryEventsLeg');
+    if(legEl) legEl.innerHTML = MO.map((m,i)=>
+      `<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text)${i===curMo?';font-weight:700':''}">
+        <span style="width:8px;height:8px;border-radius:2px;background:${evColors[i]};flex-shrink:0;display:inline-block"></span>
+        <span style="flex:1">${m.slice(0,3)}</span>
+        <span style="font-weight:700;color:var(--muted)">${D.events[i]}</span>
+      </div>`).join('');
+  }
 
   // YTD KPIs (7 cards — no Total Events, no Budgeted)
   const totCPOpp = (totActual>0&&totOpps>0) ? Math.round(totActual/totOpps) : 0;
@@ -1528,6 +1556,7 @@ function renderYTD(){
       <td class="num">${D.actual[i]>0?'$'+D.actual[i].toLocaleString():'—'}</td>
       <td class="num ${vc}">${D.actual[i]>0?vs+'$'+Math.abs(v).toLocaleString():'—'}</td>
       <td class="num co">${D.roi[i]>0?'$'+D.roi[i].toLocaleString():'—'}</td>
+      <td class="num co">${(()=>{ const a=D.actual[i],o=D.opps[i]; return (a>0&&o>0)?'$'+Math.round(a/o).toLocaleString():'—'; })()}</td>
     </tr>`;
   }).join('');
 
@@ -1567,6 +1596,16 @@ function renderYTD(){
 
   destroyChart('ytdROIChart');
   {const _cv=(document.getElementById('ytdROIChart'));if(_cv)charts.ytdROI=MiniCharts.create(_cv,{type:'bar',data:{labels:ROI_T.map(r=>r.lbl),datasets:[{data:ROI_T.map(r=>r.roi),backgroundColor:ROI_T.map(r=>r.c),borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>'Cost/MQL: $'+ctx.parsed.x.toLocaleString()}}},scales:{x:{ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()},grid:{color:'rgba(0,0,0,.05)'}},y:{reverse:true,ticks:{font:FONT,color:TC},grid:{display:false}}}}});}
+
+  /* Cost per Opp by Tier — YTD */
+  destroyChart('ytdCPOppChart');
+  {
+    const cpoppByTier = {'Tier 1':{a:0,o:0},'Tier 2':{a:0,o:0},'Tier 3':{a:0,o:0},'Tier 4':{a:0,o:0}};
+    POOL.forEach(e=>{ if(cpoppByTier[e.tier]){cpoppByTier[e.tier].a+=(Number(e.actual)||0);cpoppByTier[e.tier].o+=(Number(e.opps)||0);} });
+    const cpoppVals = ['Tier 1','Tier 2','Tier 3','Tier 4'].map(t=>{ const d=cpoppByTier[t]; return (d.a>0&&d.o>0)?Math.round(d.a/d.o):0; });
+    const _cv2=document.getElementById('ytdCPOppChart');
+    if(_cv2) charts.ytdCPOpp=MiniCharts.create(_cv2,{type:'bar',data:{labels:['Tier 1','Tier 2','Tier 3','Tier 4'],datasets:[{data:cpoppVals,backgroundColor:['#E76E25','#0096CE','#7BC3D0','#366B98'],borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>ctx.parsed.x>0?'Cost/Opp: $'+ctx.parsed.x.toLocaleString():'No data'}}},scales:{x:{ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()},grid:{color:'rgba(0,0,0,.05)'}},y:{reverse:true,ticks:{font:FONT,color:TC},grid:{display:false}}}}});
+  }
 }
 
 /* ══ MONTHLY PAGE ══ */
@@ -1599,12 +1638,13 @@ function renderMonthly(mi_raw){
     setHTML('mGoalDuo',   '');
     setHTML('mGoalProgs', '');
     setHTML('mROIRows',   '');
+    setHTML('mCPOppRows', '');
     setHTML('mSrcLeg',    '');
     setHTML('mTierLeg',   '');
     setHTML('mCommList',  msg);
     setHTML('mTripGrid',  msg);
     setHTML('evtBody',    '');
-    ['mFunnelChart','mSrcChart','mROIChart','mTierChart'].forEach(destroyChart);
+    ['mFunnelChart','mSrcChart','mROIChart','mCPOppChart','mTierChart'].forEach(destroyChart);
     return;
   }
 
@@ -1801,6 +1841,39 @@ function renderMonthly(mi_raw){
       plugins:{legend:{display:false},
         tooltip:{titleFont:FONT,bodyFont:FONT,
           callbacks:{label:ctx=>roiHas[ctx.dataIndex]?'Cost/MQL: $'+roiAvgs[ctx.dataIndex].toLocaleString():'No data'}}},
+      scales:{
+        x:{min:0, ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()}, grid:{color:'rgba(0,0,0,.05)'}},
+        y:{reverse:true, ticks:{font:FONT,color:TC}, grid:{display:false}}
+      }}
+  });}
+
+  /* ── 2b. COST PER OPP BY TIER (horizontal bar + key rows) ── */
+  const cpoppByTierM = {};
+  TIERS.forEach(t => { cpoppByTierM[t] = {actual:0, opps:0}; });
+  mEvents.forEach(e => {
+    if(cpoppByTierM[e.tier]) {
+      cpoppByTierM[e.tier].actual += Number(e.actual)||0;
+      cpoppByTierM[e.tier].opps  += Number(e.opps)||0;
+    }
+  });
+  const cpoppAvgs = TIERS.map(t => { const d=cpoppByTierM[t]; return (d.actual>0&&d.opps>0)?Math.round(d.actual/d.opps):0; });
+  const cpoppHas  = cpoppAvgs.map(v => v > 0);
+  setHTML('mCPOppRows', TIERS.map((t,k)=>
+    `<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:2px 0">
+       <span style="display:flex;align-items:center;gap:7px">
+         <span style="width:9px;height:9px;border-radius:2px;background:${roiColors[k]};display:inline-block;flex-shrink:0"></span>
+         ${t}
+       </span>
+       <span style="font-weight:700;color:var(--text)">${cpoppHas[k] ? '$'+cpoppAvgs[k].toLocaleString() : '—'}</span>
+     </div>`).join(''));
+  destroyChart('mCPOppChart');
+  {const _cvCPOpp=$s('mCPOppChart'); if(_cvCPOpp) charts.mCPOpp = MiniCharts.create(_cvCPOpp,{
+    type:'bar',
+    data:{ labels:TIERS, datasets:[{data:cpoppAvgs, backgroundColor:roiColors, borderRadius:6, borderSkipped:false}] },
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false},
+        tooltip:{titleFont:FONT,bodyFont:FONT,
+          callbacks:{label:ctx=>cpoppHas[ctx.dataIndex]?'Cost/Opp: $'+cpoppAvgs[ctx.dataIndex].toLocaleString():'No data'}}},
       scales:{
         x:{min:0, ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()}, grid:{color:'rgba(0,0,0,.05)'}},
         y:{reverse:true, ticks:{font:FONT,color:TC}, grid:{display:false}}
