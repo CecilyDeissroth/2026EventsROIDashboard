@@ -399,14 +399,39 @@ const MiniCharts = {
     datasets.forEach(ds => ds.data.forEach(v => { if(v!=null) maxVal=Math.max(maxVal,v); }));
     if (!maxVal) maxVal = 1;
 
+    /* compute nice y scale */
+    const yOpts = options?.scales?.y || {};
+    const yMin  = yOpts.min != null ? yOpts.min : 0;
+    let yMax;
+    if (yOpts.max != null) {
+      yMax = yOpts.max;
+    } else {
+      const rough = maxVal / 4;
+      const mag = Math.pow(10, Math.floor(Math.log10(rough || 1)));
+      const norm = rough / mag;
+      const nice = norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10;
+      yMax = Math.ceil(maxVal / (nice * mag)) * (nice * mag) || 1;
+    }
+    const yRange = yMax - yMin || 1;
+    const yStep = yOpts.ticks?.stepSize || (() => {
+      const range = yMax - yMin;
+      const rough2 = range / 4;
+      const mag2 = Math.pow(10, Math.floor(Math.log10(rough2 || 1)));
+      const norm2 = rough2 / mag2;
+      const nice2 = norm2 < 1.5 ? 1 : norm2 < 3 ? 2 : norm2 < 7 ? 5 : 10;
+      return nice2 * mag2;
+    })();
+    const yTicks = [];
+    for (let v = yMin; v <= yMax + 1e-9; v += yStep) yTicks.push(Math.round(v * 1e9) / 1e9);
+
     const cW = W - p.l - p.r, cH = H - p.t - p.b;
 
-    /* grid */
+    /* grid at tick positions */
     ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.lineWidth = 1;
-    for (let i=1; i<=4; i++) {
-      const y = p.t + cH*(1-i/4);
+    yTicks.forEach(tv => {
+      const y = p.t + cH * (1 - (tv - yMin) / yRange);
       ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(W-p.r, y); ctx.stroke();
-    }
+    });
 
     /* hover crosshair */
     if (hov) {
@@ -421,7 +446,7 @@ const MiniCharts = {
     datasets.forEach((ds, di) => {
       const pts = ds.data.map((v,i)=>({
         x: p.l + (n>1 ? i/(n-1) : 0.5)*cW,
-        y: v!=null ? p.t + cH*(1 - v/maxVal) : null,
+        y: v!=null ? p.t + cH*(1 - (v - yMin)/yRange) : null,
         idx: i, dsIdx: di
       }));
       ctx.strokeStyle = ds.borderColor || '#0096CE';
@@ -456,12 +481,17 @@ const MiniCharts = {
     ctx.fillStyle=this._muted; ctx.font=`10px ${this._font}`; ctx.textAlign='center';
     labels.forEach((lbl,i)=>ctx.fillText(String(lbl), p.l+(n>1?i/(n-1):0.5)*cW, H-6));
 
-    /* y labels */
+    /* y labels at tick positions */
     ctx.textAlign='right';
-    for(let i=0;i<=4;i++){
-      const v=maxVal*i/4, y=p.t+cH*(1-i/4);
-      const fmt=options?.scales?.y?.ticks?.callback;
-      ctx.fillText(fmt?fmt(v):this._fmtNum(v), p.l-4, y+4);
+    {
+      const fmt = yOpts?.ticks?.callback;
+      yTicks.forEach(tv => {
+        const displayVal = fmt ? fmt(tv) : this._fmtNum(tv);
+        if (displayVal == null) return;
+        const y = p.t + cH * (1 - (tv - yMin) / yRange);
+        ctx.fillStyle = this._muted;
+        ctx.fillText(String(displayVal), p.l - 4, y + 4);
+      });
     }
 
     if (hasLeg) this._drawLegend(ctx, W, p.t-7, datasets);
@@ -881,6 +911,20 @@ td.wrap{white-space:normal;min-width:160px}
       <div class="pt">Events per Tier <span class="pt-r">by month</span></div>
       <div class="ps">Monthly event count stacked by tier — full year</div>
       <div style="flex:1;min-height:0;position:relative;min-height:180px"><canvas id="ytdTierMonthChart" style="width:100%;height:100%"></canvas></div>
+    </div>
+  </div>
+
+  <!-- YTD CHARTS ROW 3: Monthly Opportunity Value by Tier -->
+  <div class="g2">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Monthly Opportunity Value <span class="pt-r">by tier</span></div>
+      <div class="ps">Total opportunity value per month, color-coded by event tier</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:240px"><canvas id="ytdOppValueChart" style="width:100%;height:100%"></canvas></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">MQL → SQL → Opportunity — Full Year <span class="pt-r">Jan–Dec 2026</span></div>
+      <div class="ps">Monthly funnel performance across all tiers and events</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:240px"><canvas id="ytdFunnelChart" style="width:100%;height:100%"></canvas></div>
     </div>
   </div>
 
@@ -1492,6 +1536,7 @@ function renderYTD(){
     destroyChart('ytdSpendChart');
     destroyChart('ytdSrcChart');
     destroyChart('ytdTierMonthChart');
+    destroyChart('ytdOppValueChart');
     destroyChart('ytdROIChart');
     destroyChart('ytdCPOppChart');
     destroyChart('summaryEventsChart');
@@ -1614,32 +1659,70 @@ function renderYTD(){
   destroyChart('ytdSpendChart');
   const spendActualFiltered=D.actual.map(v=>v>0?v:null);
   const spendBudgetFiltered=D.budget.map(v=>v>0?v:null);
-  {const _cv=(document.getElementById('ytdSpendChart'));if(_cv)charts.ytdSpend=MiniCharts.create(_cv,{type:'line',data:{labels:MO.map(m=>m.slice(0,3)),datasets:[{label:'Budgeted (USD)',data:spendBudgetFiltered,borderColor:'rgba(0,80,93,.6)',backgroundColor:'transparent',borderWidth:1.5,borderDash:[6,4],pointRadius:2,pointBackgroundColor:'rgba(0,80,93,.6)',tension:.4,fill:false,order:2,spanGaps:true},{label:'Actuals (USD)',data:spendActualFiltered,borderColor:'#E76E25',backgroundColor:'transparent',borderWidth:3,pointRadius:5,pointBackgroundColor:'#E76E25',pointBorderColor:'#fff',pointBorderWidth:2,tension:.4,fill:false,order:1,spanGaps:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:FONT,color:TC,boxWidth:10,boxHeight:10,padding:12}},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>ctx.dataset.label+': $'+Number(ctx.parsed.y).toLocaleString()}}},scales:{x:{ticks:{font:FONT,color:TC,autoSkip:false},grid:{color:'rgba(0,0,0,.04)'}},y:{ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()},grid:{color:'rgba(0,0,0,.05)'}}}}});}
+  {const _cv=(document.getElementById('ytdSpendChart'));if(_cv)charts.ytdSpend=MiniCharts.create(_cv,{type:'line',data:{labels:MO.map(m=>m.slice(0,3)),datasets:[{label:'Budgeted (USD)',data:spendBudgetFiltered,borderColor:'rgba(0,80,93,.6)',backgroundColor:'transparent',borderWidth:1.5,borderDash:[6,4],pointRadius:2,pointBackgroundColor:'rgba(0,80,93,.6)',tension:.4,fill:false,order:2,spanGaps:true},{label:'Actuals (USD)',data:spendActualFiltered,borderColor:'#E76E25',backgroundColor:'transparent',borderWidth:3,pointRadius:5,pointBackgroundColor:'#E76E25',pointBorderColor:'#fff',pointBorderWidth:2,tension:.4,fill:false,order:1,spanGaps:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:FONT,color:TC,boxWidth:10,boxHeight:10,padding:12}},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>ctx.dataset.label+': $'+Number(ctx.parsed.y).toLocaleString()}}},scales:{x:{ticks:{font:FONT,color:TC,autoSkip:false},grid:{color:'rgba(0,0,0,.04)'}},y:{min:0,max:500000,ticks:{font:FONT,color:TC,stepSize:100000,callback:v=>'$'+(v/1000).toFixed(0)+'K'},grid:{color:'rgba(0,0,0,.05)'}}}}});}
 
   destroyChart('ytdSrcChart');
   {const _cv=(document.getElementById('ytdSrcChart'));if(_cv)charts.ytdSrc=MiniCharts.create(_cv,{type:'doughnut',data:{labels:SRC.labels,datasets:[{data:SRC.data,backgroundColor:SRC.colors,borderWidth:0,hoverOffset:5}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT}}}});}
 
   destroyChart('ytdTierMonthChart');
-  {const _cv=document.getElementById('ytdTierMonthChart'); if(_cv) charts.ytdTierMonth=MiniCharts.create(_cv,{_stacked:true,
-    type:'bar',
-    data:{
-      labels:MO.map(m=>m.slice(0,3)),
-      datasets:[
-        {label:'Tier 1',data:TIER_EVENTS_MI['Tier 1'],backgroundColor:'#E76E25',borderRadius:3,stack:'s'},
-        {label:'Tier 2',data:TIER_EVENTS_MI['Tier 2'],backgroundColor:'#0096CE',borderRadius:3,stack:'s'},
-        {label:'Tier 3',data:TIER_EVENTS_MI['Tier 3'],backgroundColor:'#7BC3D0',borderRadius:3,stack:'s'},
-        {label:'Tier 4',data:TIER_EVENTS_MI['Tier 4'],backgroundColor:'#366B98',borderRadius:3,stack:'s'},
-      ]
-    },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:true,labels:{font:FONT,color:TC,boxWidth:10,boxHeight:10,padding:10}},tooltip:{titleFont:FONT,bodyFont:FONT}},
-      scales:{
-        x:{ticks:{font:FONT,color:TC,autoSkip:false},grid:{color:'rgba(0,0,0,.04)'},stacked:true},
-        y:{ticks:{font:FONT,color:TC,precision:0},grid:{color:'rgba(0,0,0,.05)'},stacked:true}
+  {
+    /* Build per-tier per-month event counts directly from POOL */
+    const tierMI = {'Tier 1':Array(12).fill(0),'Tier 2':Array(12).fill(0),'Tier 3':Array(12).fill(0),'Tier 4':Array(12).fill(0)};
+    POOL.forEach(e => { const m=Number(e.monthIdx); if(m>=0&&m<12&&tierMI[e.tier]) tierMI[e.tier][m]++; });
+    const _cv=document.getElementById('ytdTierMonthChart');
+    if(_cv) charts.ytdTierMonth=MiniCharts.create(_cv,{_stacked:true,
+      type:'bar',
+      data:{
+        labels:MO.map(m=>m.slice(0,3)),
+        datasets:[
+          {label:'Tier 1',data:tierMI['Tier 1'],backgroundColor:'#E76E25',borderRadius:3,stack:'s'},
+          {label:'Tier 2',data:tierMI['Tier 2'],backgroundColor:'#0096CE',borderRadius:3,stack:'s'},
+          {label:'Tier 3',data:tierMI['Tier 3'],backgroundColor:'#7BC3D0',borderRadius:3,stack:'s'},
+          {label:'Tier 4',data:tierMI['Tier 4'],backgroundColor:'#366B98',borderRadius:3,stack:'s'},
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,labels:{font:FONT,color:TC,boxWidth:10,boxHeight:10,padding:10}},tooltip:{titleFont:FONT,bodyFont:FONT}},
+        scales:{
+          x:{ticks:{font:FONT,color:TC,autoSkip:false},grid:{color:'rgba(0,0,0,.04)'},stacked:true},
+          y:{ticks:{font:FONT,color:TC,precision:0},grid:{color:'rgba(0,0,0,.05)'},stacked:true}
+        }
       }
-    }
-  });}
+    });
+  }
+
+  /* Monthly Opportunity Value by Tier — stacked bar */
+  destroyChart('ytdOppValueChart');
+  {
+    const oppValMI = {'Tier 1':Array(12).fill(0),'Tier 2':Array(12).fill(0),'Tier 3':Array(12).fill(0),'Tier 4':Array(12).fill(0)};
+    POOL.forEach(e => {
+      const m=Number(e.monthIdx); const ov=Number(e.oppValue)||0;
+      if(m>=0&&m<12&&ov>0&&oppValMI[e.tier]) oppValMI[e.tier][m]+=ov;
+    });
+    const _cvOV=document.getElementById('ytdOppValueChart');
+    if(_cvOV) charts.ytdOppValue=MiniCharts.create(_cvOV,{_stacked:true,
+      type:'bar',
+      data:{
+        labels:MO.map(m=>m.slice(0,3)),
+        datasets:[
+          {label:'Tier 1',data:oppValMI['Tier 1'],backgroundColor:'#E76E25',borderRadius:3,stack:'s'},
+          {label:'Tier 2',data:oppValMI['Tier 2'],backgroundColor:'#0096CE',borderRadius:3,stack:'s'},
+          {label:'Tier 3',data:oppValMI['Tier 3'],backgroundColor:'#7BC3D0',borderRadius:3,stack:'s'},
+          {label:'Tier 4',data:oppValMI['Tier 4'],backgroundColor:'#366B98',borderRadius:3,stack:'s'},
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,labels:{font:FONT,color:TC,boxWidth:10,boxHeight:10,padding:10}},
+          tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>ctx.dataset.label+': $'+Math.round(ctx.parsed.y).toLocaleString()}}},
+        scales:{
+          x:{ticks:{font:FONT,color:TC,autoSkip:false},grid:{color:'rgba(0,0,0,.04)'},stacked:true},
+          y:{ticks:{font:FONT,color:TC,callback:v=>v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v},grid:{color:'rgba(0,0,0,.05)'},stacked:true}
+        }
+      }
+    });
+  }
 
   destroyChart('ytdROIChart');
   {const _cv=(document.getElementById('ytdROIChart'));if(_cv)charts.ytdROI=MiniCharts.create(_cv,{type:'bar',data:{labels:ROI_T.map(r=>r.lbl),datasets:[{data:ROI_T.map(r=>r.roi),backgroundColor:ROI_T.map(r=>r.c),borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>'Cost/MQL: $'+ctx.parsed.x.toLocaleString()}}},scales:{x:{ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()},grid:{color:'rgba(0,0,0,.05)'}},y:{reverse:true,ticks:{font:FONT,color:TC},grid:{display:false}}}}});}
