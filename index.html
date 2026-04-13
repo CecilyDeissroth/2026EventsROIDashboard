@@ -233,13 +233,36 @@ const MiniCharts = {
     /* respect explicit y-axis min/max/stepSize from options */
     const yOpts = options?.scales?.y || {};
     const yMin  = yOpts.min != null ? yOpts.min : 0;
-    const yMax  = yOpts.max != null ? yOpts.max : maxVal;
+    /* If no explicit max, round up to a nice interval */
+    let yMax;
+    if (yOpts.max != null) {
+      yMax = yOpts.max;
+    } else {
+      const niceStep = (() => {
+        if (maxVal <= 0) return 1;
+        const rough = maxVal / 4;
+        const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+        const norm = rough / mag;
+        const nice = norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10;
+        return nice * mag;
+      })();
+      yMax = Math.ceil(maxVal / niceStep) * niceStep;
+      if (yMax === 0) yMax = 1;
+    }
     const yRange = yMax - yMin || 1;
-    const yStep = yOpts.ticks?.stepSize || null;
+    const yStep = yOpts.ticks?.stepSize || (() => {
+      /* compute a nice step that gives 4-6 ticks */
+      const range = yMax - yMin;
+      const rough = range / 4;
+      const mag = Math.pow(10, Math.floor(Math.log10(rough || 1)));
+      const norm = rough / mag;
+      const nice = norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10;
+      return nice * mag;
+    })();
     /* build tick values */
     const yTicks = [];
     if (yStep) {
-      for (let v = yMin; v <= yMax + 1e-9; v += yStep) yTicks.push(Math.round(v));
+      for (let v = yMin; v <= yMax + 1e-9; v += yStep) yTicks.push(Math.round(v * 1e9) / 1e9);
     } else {
       for (let i = 0; i <= 4; i++) yTicks.push(yMin + (yRange * i / 4));
     }
@@ -792,29 +815,27 @@ td.wrap{white-space:normal;min-width:160px}
 
   <!-- 2026 SUMMARY -->
   <div class="sec">2026 Summary</div>
-  <div style="display:grid;grid-template-columns:auto auto auto 1fr;gap:12px;margin-bottom:16px;align-items:stretch">
-    <!-- Total Events block -->
+  <!-- Row 1: stat blocks + Event Purpose -->
+  <div style="display:grid;grid-template-columns:auto auto auto;gap:12px;margin-bottom:12px;align-items:stretch">
     <div class="kpi ytd-k0" style="min-width:120px;padding:12px 14px 10px">
       <div class="kpi-lbl">Total Events</div>
       <div class="kpi-val" style="font-size:18px" id="yk0">—</div>
       <div class="kpi-dl neu" id="yd0">Full year</div>
     </div>
-    <!-- Full Year Budget block -->
     <div class="kpi ytd-k4" style="min-width:140px;padding:12px 14px 10px">
       <div class="kpi-lbl">Full Year Budget</div>
       <div class="kpi-val" style="font-size:18px" id="yk-fybud">—</div>
       <div class="kpi-dl neu" id="yd-fybud">All events budgeted</div>
     </div>
-    <!-- Event Purpose block -->
     <div class="panel" style="padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;min-width:160px">
       <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Event Purpose</div>
       <div class="goal-duo" id="summaryGoalDuo" style="margin:0;gap:6px"></div>
     </div>
-    <!-- Events per Month chart -->
-    <div class="panel" style="padding:12px 16px;display:flex;flex-direction:column">
-      <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Events per Month</div>
-      <div style="flex:1;min-height:0;position:relative;min-height:80px"><canvas id="summaryEventsChart" style="width:100%;height:100%"></canvas></div>
-    </div>
+  </div>
+  <!-- Row 2: Events per Month chart -->
+  <div class="panel" style="padding:12px 16px;margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Events per Month</div>
+    <div style="position:relative;height:110px"><canvas id="summaryEventsChart" style="width:100%;height:100%"></canvas></div>
   </div>
 
   <!-- YTD KPIs -->
@@ -897,6 +918,7 @@ td.wrap{white-space:normal;min-width:160px}
             <th>MQLs</th>
             <th>SQLs</th>
             <th>Opps</th>
+            <th>Opp Value (USD)</th>
             <th>Budgeted (USD)</th>
             <th>Actuals (USD)</th>
             <th>Variance</th>
@@ -1029,6 +1051,7 @@ td.wrap{white-space:normal;min-width:160px}
           <th>MQLs</th>
           <th>SQLs</th>
           <th>Opportunities</th>
+          <th>Opp Value (USD)</th>
           <th>Cost per MQL</th>
           <th>Cost per Opp</th>
           <th>Trip Report Results</th>
@@ -1094,6 +1117,7 @@ td.wrap{white-space:normal;min-width:160px}
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">MQLs</th>
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">SQLs</th>
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Opps</th>
+            <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Opp Value ($)</th>
 <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Comm Type</th>
 <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:100px">Comm Date</th>
 <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap;min-width:100px">Start Date</th>
@@ -1249,7 +1273,8 @@ const D = {
   sql:   [51,62,80,93,82,100,90,110,76,98,91,116],
   opps:  [19,23,31,36,32,39,35,43,30,38,35,45],
   budget:[45,53,67,75,70,84,78,92,65,82,77,94],
-  actual:[42,55,64,78,67,86,74,88,63,84,73,90]
+  actual:[42,55,64,78,67,86,74,88,63,84,73,90],
+  oppValue:[0,0,0,0,0,0,0,0,0,0,0,0]
 };
 D.roi = D.actual.map((a,i)=> D.mql[i]>0 ? Math.round(a*1000/D.mql[i]) : 0);
 D.variance = D.actual.map((a,i)=>a-D.budget[i]);
@@ -1571,6 +1596,7 @@ function renderYTD(){
       <td class="num cb">${D.mql[i]}</td>
       <td class="num">${D.sql[i]}</td>
       <td class="num cg">${D.opps[i]}</td>
+      <td class="num cg">${(D.oppValue&&D.oppValue[i]>0)?'$'+Math.round(D.oppValue[i]).toLocaleString():'—'}</td>
       <td class="num">${D.actual[i]>0?'$'+D.budget[i].toLocaleString():'—'}</td>
       <td class="num">${D.actual[i]>0?'$'+D.actual[i].toLocaleString():'—'}</td>
       <td class="num ${vc}">${D.actual[i]>0?vs+'$'+Math.abs(v).toLocaleString():'—'}</td>
@@ -2110,6 +2136,7 @@ function renderEvtTable(mi){
       <td class="num cb">${e.mql||0}</td>
       <td class="num">${e.sql||0}</td>
       <td class="num cg">${e.opps||0}</td>
+      <td class="num cg">${(Number(e.oppValue)||0)>0?'$'+(Number(e.oppValue)||0).toLocaleString():'—'}</td>
       <td class="num co">${(()=>{ const a=Number(e.actual)||0,m=Number(e.mql)||0; return (a>0&&m>0)?'$'+Math.round(a/m).toLocaleString():'—'; })()}</td>
       <td class="num co">${(()=>{ const a=Number(e.actual)||0,o=Number(e.opps)||0; return (a>0&&o>0)?'$'+Math.round(a/o).toLocaleString():'—'; })()}</td>
       <td class="wrap" style="min-width:200px;max-width:340px;white-space:normal;font-size:11px;line-height:1.5;color:var(--muted)">${e.trip ? `<div style="margin-bottom:4px">${sentimentBadge(e)}</div>${e.trip}` : '—'}</td>
@@ -2117,7 +2144,7 @@ function renderEvtTable(mi){
       <td style="color:var(--muted);white-space:nowrap">${e.commDate||'—'}</td>
       <td class="num" style="color:var(--c5)">${(()=>{ try{ const cd=new Date(e.commDate),sd=new Date(e.startDate); if(!isNaN(cd)&&!isNaN(sd)&&sd>cd) return Math.round((sd-cd)/86400000)+'d'; }catch(err){} return '—'; })()}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="19" style="text-align:center;padding:28px;color:var(--muted)">${HAS_SPREADSHEET ? 'No events found' : 'Upload the source spreadsheet to view event details'} for ${MO[resolvedMi]||'this month'}.</td></tr>`);
+  }).join('') || `<tr><td colspan="20" style="text-align:center;padding:28px;color:var(--muted)">${HAS_SPREADSHEET ? 'No events found' : 'Upload the source spreadsheet to view event details'} for ${MO[resolvedMi]||'this month'}.</td></tr>`);
 }
 
 /* ══ NAVIGATION ══ */
@@ -2150,7 +2177,7 @@ const DATA_SAVE_DATE = "Mar 19, 2026";
 
 function setLastUpdated(){
   const syncEl = document.getElementById('syncText');
-  if (syncEl) syncEl.textContent = DATA_SAVE_DATE;
+  if (syncEl && (!syncEl.textContent || syncEl.textContent === '—')) syncEl.textContent = DATA_SAVE_DATE;
 }
 function setConnStatus(){ setLastUpdated(); }
 
@@ -2176,6 +2203,7 @@ const CELL_CFG = [
   ['mql',       'number',   60],
   ['sql',       'number',   60],
   ['opps',      'number',   60],
+  ['oppValue',  'number',   90],
   ['comm',      'select',   160, ['Logistics Document','Pre-Show Brief & Document','']],
   ['commDate',  'text',     110],
   ['startDate', 'text',     110],
@@ -2287,7 +2315,7 @@ function gridAddRow(){
   _gridDraft.push({
     abbr:'', name:'New Event', tier:'Tier 3', source:'New for 2026',
     goal:'Lead Generation', budget:0, actual:0, variance:0,
-    mql:0, sql:0, opps:0, comm:'', commDate:'',
+    mql:0, sql:0, opps:0, oppValue:0, comm:'', commDate:'',
     trip:'', startDate:'', endDate:'', monthIdx:0,
     sentiment:'Neutral', status:'Completed', quarter:'', bu:'', notes:''
   });
@@ -2317,7 +2345,7 @@ function gridApply(){
 
   /* Recompute D aggregates from POOL */
   const blank12=()=>Array(12).fill(0);
-  const newD={events:blank12(),mql:blank12(),sql:blank12(),opps:blank12(),budget:blank12(),actual:blank12(),variance:blank12(),roi:blank12()};
+  const newD={events:blank12(),mql:blank12(),sql:blank12(),opps:blank12(),oppValue:blank12(),budget:blank12(),actual:blank12(),variance:blank12(),roi:blank12()};
   const newTMI={'Tier 1':blank12(),'Tier 2':blank12(),'Tier 3':blank12(),'Tier 4':blank12()};
   const srcCnt={}, cpmqlByTier={'Tier 1':[],'Tier 2':[],'Tier 3':[],'Tier 4':[]};
   const goalCnt={'Relationship Building':0,'Lead Generation':0};
@@ -2329,6 +2357,7 @@ function gridApply(){
     newD.mql[m]+=(Number(e.mql)||0);
     newD.sql[m]+=(Number(e.sql)||0);
     newD.opps[m]+=(Number(e.opps)||0);
+    newD.oppValue[m]+=(Number(e.oppValue)||0);
     newD.budget[m]+=(Number(e.budget)||0);
     newD.actual[m]+=(Number(e.actual)||0);
     newD.variance[m]+=(Number(e.variance)||0);
@@ -2441,7 +2470,7 @@ function bootstrapFromPool(){
 
   /* Compute D aggregates */
   const blank12=()=>Array(12).fill(0);
-  const newD={events:blank12(),mql:blank12(),sql:blank12(),opps:blank12(),budget:blank12(),actual:blank12(),variance:blank12(),roi:blank12()};
+  const newD={events:blank12(),mql:blank12(),sql:blank12(),opps:blank12(),oppValue:blank12(),budget:blank12(),actual:blank12(),variance:blank12(),roi:blank12()};
   const newTMI={'Tier 1':blank12(),'Tier 2':blank12(),'Tier 3':blank12(),'Tier 4':blank12()};
   const srcCnt={},cpmqlByTier={'Tier 1':[],'Tier 2':[],'Tier 3':[],'Tier 4':[]};
   const goalCnt={'Relationship Building':0,'Lead Generation':0};
@@ -2453,6 +2482,7 @@ function bootstrapFromPool(){
     newD.mql[m]+=(Number(e.mql)||0);
     newD.sql[m]+=(Number(e.sql)||0);
     newD.opps[m]+=(Number(e.opps)||0);
+    newD.oppValue[m]+=(Number(e.oppValue)||0);
     newD.budget[m]+=(Number(e.budget)||0);
     newD.actual[m]+=(Number(e.actual)||0);
     newD.variance[m]+=(Number(e.variance)||0);
@@ -2487,6 +2517,10 @@ function bootstrapFromPool(){
 
 document.addEventListener('DOMContentLoaded', () => {
   try {
+  /* Show source data date immediately — API will overwrite if a newer savedAt is returned */
+  const _syncEl = document.getElementById('syncText');
+  if (_syncEl) _syncEl.textContent = DATA_SAVE_DATE;
+
   const headerBrand = document.getElementById('headerBrand');
   if (headerBrand) headerBrand.addEventListener('click', showYTD);
 
