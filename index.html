@@ -787,7 +787,7 @@ td.wrap{white-space:normal;min-width:160px}
 .click-hint{font-size:10px;color:var(--muted);font-style:italic;margin-top:8px}
 
 /* ══ MODAL ══ */
-.modal-bg{display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:500;align-items:center;justify-content:center}
+.modal-bg{display:none;position:fixed;top:68px;left:0;width:100%;height:calc(100vh - 68px);background:rgba(0,0,0,.5);z-index:500;align-items:flex-start;justify-content:center;padding-top:12px}
 .modal-bg.open{display:flex}
 .modal{background:#fff;border-radius:var(--r20);padding:34px;width:480px;max-width:95vw;box-shadow:0 24px 72px rgba(0,0,0,.28)}
 .modal h2{font-size:19px;font-weight:700;color:var(--text);margin-bottom:6px}
@@ -1155,7 +1155,7 @@ td.wrap{white-space:normal;min-width:160px}
 
 <!-- DATA GRID MODAL -->
 <div class="modal-bg" id="modalBg">
-  <div id="gridModal" style="background:#fff;border-radius:var(--r20);width:96vw;max-width:1400px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 72px rgba(0,0,0,.28);overflow:hidden">
+  <div id="gridModal" style="background:#fff;border-radius:var(--r20);width:96vw;max-width:1400px;max-height:calc(100vh - 92px);display:flex;flex-direction:column;box-shadow:0 24px 72px rgba(0,0,0,.28);overflow:hidden">
 
     <!-- GRID HEADER -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px 14px;border-bottom:1px solid var(--border);flex-shrink:0">
