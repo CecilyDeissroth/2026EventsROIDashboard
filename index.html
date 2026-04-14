@@ -819,9 +819,10 @@ td.wrap{white-space:normal;min-width:160px}
     </div>
   </div>
   <div class="h-right">
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-right:4px">
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-right:4px;cursor:pointer" id="syncBlock" title="Click to toggle UTC / local time">
       <span style="font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,.45)">Last Updated</span>
       <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.8)" id="syncText">—</span>
+      <span style="font-size:10px;font-weight:500;color:rgba(255,255,255,.4)" id="syncAlt"></span>
     </div>
     <div id="livePill" style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.07);font-size:11px;font-weight:600;color:rgba(255,255,255,.5)" title="Live sync status">
       <span id="liveDot" style="width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.3);flex-shrink:0;transition:background .3s"></span>
@@ -873,7 +874,7 @@ td.wrap{white-space:normal;min-width:160px}
       <div class="hero-divider"></div>
       <div class="hs"><div class="hs-val" id="ytd-total-opps">—</div><div class="hs-lbl">Total Opps</div></div>
       <div class="hero-divider"></div>
-      <div class="hs"><div class="hs-val" id="ytd-total-rev">—</div><div class="hs-lbl">Total Spend</div></div>
+      <div class="hs"><div class="hs-val" id="ytd-total-rev">—</div><div class="hs-lbl">Total Opp Value (USD)</div></div>
     </div>
   </div>
 
@@ -1597,7 +1598,8 @@ function renderYTD(){
   setText('ytd-total-events', totEvents);
   setText('ytd-total-mql', totMQL.toLocaleString());
   setText('ytd-total-opps', totOpps);
-  setText('ytd-total-rev', '$'+totActual.toLocaleString());
+  const totOppValueYTD = POOL.reduce((s,e)=>s+(Number(e.oppValue)||0),0);
+  setText('ytd-total-rev', totOppValueYTD>0 ? '$'+totOppValueYTD.toLocaleString() : '—');
 
   // 2026 Summary — Total Events & Full Year Budget
   const fullYearBudget = sum(D.budget);
@@ -2294,9 +2296,72 @@ function showMonthly(i){
    Update this string whenever the source data is refreshed. */
 const DATA_SAVE_DATE = "Mar 19, 2026";
 
-function setLastUpdated(){
+/* ── Timezone-aware Last Updated display ── */
+let _syncShowUTC = false; /* default: local time */
+
+function _parseSavedDate(raw) {
+  if (!raw || raw === '—') return null;
+  /* Try parsing as-is; handles ISO strings and most locale strings */
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function _tzAbbr(date, useUTC) {
+  try {
+    if (useUTC) return 'UTC';
+    /* Extract timezone abbreviation from Intl */
+    const parts = new Intl.DateTimeFormat('en', {timeZoneName:'short'}).formatToParts(date);
+    const tz = parts.find(p => p.type === 'timeZoneName');
+    return tz ? tz.value : Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch(e) { return ''; }
+}
+
+function _fmtDate(date, useUTC) {
+  if (!date) return null;
+  try {
+    const opts = {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'};
+    if (useUTC) opts.timeZone = 'UTC';
+    return new Intl.DateTimeFormat('en-US', opts).format(date);
+  } catch(e) { return null; }
+}
+
+function setSyncDisplay(raw) {
   const syncEl = document.getElementById('syncText');
-  if (syncEl && (!syncEl.textContent || syncEl.textContent === '—')) syncEl.textContent = DATA_SAVE_DATE;
+  const altEl  = document.getElementById('syncAlt');
+  if (!syncEl) return;
+
+  const d = _parseSavedDate(raw);
+  if (!d) {
+    /* raw is a plain string (no parseable date) — just show it as-is */
+    syncEl.textContent = raw || '—';
+    if (altEl) altEl.textContent = '';
+    return;
+  }
+
+  const localStr = _fmtDate(d, false);
+  const utcStr   = _fmtDate(d, true);
+  const localTZ  = _tzAbbr(d, false);
+  const utcTZ    = 'UTC';
+
+  if (_syncShowUTC) {
+    syncEl.textContent = utcStr ? utcStr + ' ' + utcTZ : raw;
+    if (altEl) altEl.textContent = localStr ? 'Local: ' + localStr + ' ' + localTZ : '';
+  } else {
+    syncEl.textContent = localStr ? localStr + ' ' + localTZ : raw;
+    if (altEl) altEl.textContent = utcStr ? 'UTC: ' + utcStr : '';
+  }
+}
+
+/* Store the last raw date string so the toggle can re-render */
+let _lastSyncRaw = DATA_SAVE_DATE;
+
+function setSyncDisplayAndStore(raw) {
+  _lastSyncRaw = raw || DATA_SAVE_DATE;
+  setSyncDisplay(_lastSyncRaw);
+}
+
+function setLastUpdated(){
+  setSyncDisplayAndStore(DATA_SAVE_DATE);
 }
 function setConnStatus(){ setLastUpdated(); }
 
@@ -2539,7 +2604,7 @@ function gridApply(){
       if (result.ok) {
         setGhStatus('ok');
         const syncEl = document.getElementById('syncText');
-        if (syncEl) syncEl.textContent = result.savedAt || new Date().toLocaleString('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+        setSyncDisplayAndStore(result.savedAt || new Date().toLocaleString('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}));
         if(st){ st.textContent='✓ Saved & synced to shared store'; setTimeout(()=>{ st.textContent=''; closeModal(); },1400); }
       } else {
         setGhStatus('error');
@@ -2644,8 +2709,14 @@ function bootstrapFromPool(){
 document.addEventListener('DOMContentLoaded', () => {
   try {
   /* Show source data date immediately — API will overwrite if a newer savedAt is returned */
-  const _syncEl = document.getElementById('syncText');
-  if (_syncEl) _syncEl.textContent = DATA_SAVE_DATE;
+  setSyncDisplayAndStore(DATA_SAVE_DATE);
+
+  /* Toggle local ↔ UTC on click */
+  const _syncBlock = document.getElementById('syncBlock');
+  if (_syncBlock) _syncBlock.addEventListener('click', () => {
+    _syncShowUTC = !_syncShowUTC;
+    setSyncDisplay(_lastSyncRaw);
+  });
 
   const headerBrand = document.getElementById('headerBrand');
   if (headerBrand) headerBrand.addEventListener('click', showYTD);
@@ -2729,7 +2800,7 @@ document.addEventListener('DOMContentLoaded', () => {
         data.pool.forEach(e => POOL.push(e));
         if (data.savedAt) {
           const syncEl = document.getElementById('syncText');
-          if (syncEl) syncEl.textContent = data.savedAt;
+          if (data.savedAt) setSyncDisplayAndStore(data.savedAt);
         }
         API._lastUpdatedAt = data.updatedAt || Date.now();
         setGhStatus('ok');
