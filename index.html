@@ -1322,8 +1322,8 @@ const API = {
       POOL.length = 0;
       data.pool.forEach(e => POOL.push(e));
       if (data.updatedAt) _dataUpdatedAt = data.updatedAt;
-      if (data.savedAt) setSyncDisplayAndStore(data.savedAt);
-      else if (data.updatedAt) setSyncDisplayAndStore(computeDataSaveDate());
+      if (data.updatedAt) setSyncDisplayAndStore(data.updatedAt);
+      else if (data.savedAt) setSyncDisplayAndStore(data.savedAt);
       bootstrapFromPool();
       const isYTD = $s('pageYTD')?.classList.contains('active');
       Object.keys(charts).forEach(k => { if(charts[k]){charts[k].destroy();delete charts[k];} });
@@ -2311,9 +2311,18 @@ let _syncShowUTC = false; /* default: local time */
 
 function _parseSavedDate(raw) {
   if (!raw || raw === '—') return null;
-  /* Try parsing as-is; handles ISO strings and most locale strings */
-  const d = new Date(raw);
-  return isNaN(d.getTime()) ? null : d;
+  /* If raw is a number or numeric string, treat as Unix epoch ms — always correct */
+  const asNum = Number(raw);
+  if (!isNaN(asNum) && asNum > 1000000000000) return new Date(asNum);
+  /* ISO 8601 strings (contain T or Z) parse correctly in all browsers */
+  if (typeof raw === 'string' && (raw.includes('T') || raw.includes('Z'))) {
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  /* Plain locale strings like "Apr 14, 2026, 2:30 PM" have no tz info —
+     browsers parse them as UTC which causes wrong local display.
+     Return null so the raw string is shown as-is (no tz conversion). */
+  return null;
 }
 
 function _tzAbbr(date, useUTC) {
@@ -2617,7 +2626,7 @@ function gridApply(){
       if (result.ok) {
         setGhStatus('ok');
         const syncEl = document.getElementById('syncText');
-        setSyncDisplayAndStore(result.savedAt || new Date().toLocaleString('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}));
+        setSyncDisplayAndStore(Date.now());
         if(st){ st.textContent='✓ Saved & synced to shared store'; setTimeout(()=>{ st.textContent=''; closeModal(); },1400); }
       } else {
         setGhStatus('error');
@@ -2812,10 +2821,11 @@ document.addEventListener('DOMContentLoaded', () => {
         POOL.length = 0;
         data.pool.forEach(e => POOL.push(e));
         if (data.updatedAt) _dataUpdatedAt = data.updatedAt;
-        if (data.savedAt) {
+        /* Use updatedAt epoch (reliable) over savedAt string (ambiguous tz) */
+        if (data.updatedAt) {
+          setSyncDisplayAndStore(data.updatedAt);
+        } else if (data.savedAt) {
           setSyncDisplayAndStore(data.savedAt);
-        } else if (data.updatedAt) {
-          setSyncDisplayAndStore(computeDataSaveDate());
         }
         API._lastUpdatedAt = data.updatedAt || Date.now();
         setGhStatus('ok');
