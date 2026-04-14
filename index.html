@@ -846,15 +846,19 @@ td.wrap{white-space:normal;min-width:160px}
   <div class="sec">2026 Summary</div>
   <!-- Row 1: stat blocks + Event Purpose -->
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;align-items:stretch">
-    <div class="kpi ytd-k0" style="padding:20px 20px 16px">
+    <div class="kpi ytd-k0" style="padding:16px 20px;display:flex;flex-direction:column;min-height:100px">
       <div class="kpi-lbl">Total Events</div>
-      <div class="kpi-val" style="font-size:36px;line-height:1.1;margin-top:8px" id="yk0">—</div>
-      <div class="kpi-dl neu" style="margin-top:8px" id="yd0"></div>
+      <div style="flex:1;display:flex;align-items:center">
+        <div class="kpi-val" style="font-size:36px;line-height:1.1" id="yk0">—</div>
+      </div>
+      <div class="kpi-dl neu" id="yd0"></div>
     </div>
-    <div class="kpi ytd-k4" style="padding:20px 20px 16px">
+    <div class="kpi ytd-k4" style="padding:16px 20px;display:flex;flex-direction:column;min-height:100px">
       <div class="kpi-lbl">Full Year Budget</div>
-      <div class="kpi-val" style="font-size:28px;line-height:1.1;margin-top:8px" id="yk-fybud">—</div>
-      <div class="kpi-dl neu" style="margin-top:8px" id="yd-fybud">All events budgeted</div>
+      <div style="flex:1;display:flex;align-items:center">
+        <div class="kpi-val" style="font-size:28px;line-height:1.1" id="yk-fybud">—</div>
+      </div>
+      <div class="kpi-dl neu" id="yd-fybud"></div>
     </div>
     <div class="panel" style="padding:0;display:flex;flex-direction:column;overflow:hidden;position:relative">
       <div style="height:3px;background:var(--c5);border-radius:3px 3px 0 0;flex-shrink:0"></div>
@@ -917,7 +921,7 @@ td.wrap{white-space:normal;min-width:160px}
   <div class="panel" style="display:flex;flex-direction:column;margin-bottom:16px">
     <div class="pt">Monthly Opportunity Value <span class="pt-r">by tier</span></div>
     <div class="ps">Total opportunity value per month, color-coded by event tier</div>
-    <div style="flex:1;min-height:0;position:relative;min-height:220px"><canvas id="ytdOppValueChart" style="width:100%;height:100%"></canvas></div>
+    <div style="position:relative;height:300px"><canvas id="ytdOppValueChart" style="width:100%;height:100%"></canvas></div>
   </div>
 
   <!-- YTD TIER SCORECARD -->
@@ -1710,7 +1714,7 @@ function renderYTD(){
           tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>ctx.dataset.label+': $'+Math.round(ctx.parsed.y).toLocaleString()}}},
         scales:{
           x:{ticks:{font:FONT,color:TC,autoSkip:false},grid:{color:'rgba(0,0,0,.04)'},stacked:true},
-          y:{ticks:{font:FONT,color:TC,callback:v=>v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v},grid:{color:'rgba(0,0,0,.05)'},stacked:true}
+          y:{ticks:{font:FONT,color:TC,callback:v=>(v/1000000).toFixed(v>=1000000?1:2)+'M'},grid:{color:'rgba(0,0,0,.05)'},stacked:true}
         }
       }
     });
