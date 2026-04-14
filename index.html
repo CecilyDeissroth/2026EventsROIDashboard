@@ -154,15 +154,17 @@ const MiniCharts = {
           if (mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h) { hit={dsIdx:b.dsIdx,ptIdx:b.idx}; break; }
         }
       } else if (geo.bars.length) {
-        /* find x-column under cursor */
+        /* find x-column under cursor — only trigger within chart vertical bounds */
         const allCols = [...new Set(geo.bars.map(b=>b.idx))].sort((a,b2)=>a-b2);
         let bestCol=null, bestDist=Infinity;
         for (const col of allCols) {
           const barsForCol = geo.bars.filter(b=>b.idx===col);
           const minX = Math.min(...barsForCol.map(b=>b.x));
           const maxX = Math.max(...barsForCol.map(b=>b.x+b.w));
+          const minY = Math.min(...barsForCol.map(b=>b.y));
+          const maxY = Math.max(...barsForCol.map(b=>b.y+b.h));
           const cx2 = (minX+maxX)/2;
-          if (mx>=minX-4 && mx<=maxX+4 && Math.abs(mx-cx2)<bestDist) {
+          if (mx>=minX-4 && mx<=maxX+4 && my>=minY && my<=maxY && Math.abs(mx-cx2)<bestDist) {
             bestDist=Math.abs(mx-cx2); bestCol=col;
           }
         }
@@ -286,7 +288,7 @@ const MiniCharts = {
       const GAP = 1.5; /* px gap between segments for visual separation */
       datasets.forEach((ds, di) => {
         ds.data.forEach((v, i) => {
-          if (v == null || v === 0) { return; }
+          if (v == null || v === 0) { stackBase[i] += 0; return; }
           const isHov = hov && hov.ptIdx === i;
           const color = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
           ctx.fillStyle = color || '#366B98';
@@ -304,10 +306,16 @@ const MiniCharts = {
             ctx.rect(bx, by, barW, bh);
           }
           ctx.fill();
-          if (di === 0 && geo) geo.bars.push({x:bx, y:p.t, w:barW, h:cH, idx:i, dsIdx:di});
           stackBase[i] += v;
         });
       });
+      /* Register hit rect for every column so hover works even on all-zero months */
+      if (geo) {
+        for (let i = 0; i < n; i++) {
+          const bx = p.l + i*bgW + bgW*(1-0.7)/2;
+          geo.bars.push({x:bx, y:p.t, w:barW, h:cH, idx:i, dsIdx:0});
+        }
+      }
       ctx.globalAlpha = 1;
     } else {
     datasets.forEach((ds, di) => {
@@ -1158,7 +1166,6 @@ td.wrap{white-space:normal;min-width:160px}
       <div style="display:flex;gap:10px;align-items:center">
         <button id="gridAddRow" style="display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:var(--r8);border:1.5px solid var(--c5);background:rgba(0,150,206,.08);color:var(--c5);font-size:12px;font-weight:600;cursor:pointer;font-family:'Aptos','Calibri',sans-serif">＋ Add Event</button>
         <button id="gridSave"    style="padding:7px 20px;border-radius:var(--r8);border:none;background:var(--c2);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Aptos','Calibri',sans-serif">✓ Save &amp; Apply</button>
-        <button id="gridReset"  style="padding:7px 16px;border-radius:var(--r8);border:1.5px solid rgba(231,110,37,.4);background:rgba(231,110,37,.06);color:var(--c8);font-size:12px;font-family:'Aptos','Calibri',sans-serif;cursor:pointer" title="Discard all edits and restore original source data">↺ Reset to Original</button>
         <button id="gridCancel" style="padding:7px 16px;border-radius:var(--r8);border:1.5px solid var(--c7);background:#fff;color:var(--muted);font-size:12px;font-family:'Aptos','Calibri',sans-serif;cursor:pointer">Cancel</button>
       </div>
     </div>
@@ -1715,7 +1722,7 @@ function renderYTD(){
       },
       options:{
         responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:true,labels:{font:FONT,color:TC,boxWidth:10,boxHeight:10,padding:10}},tooltip:{titleFont:FONT,bodyFont:FONT}},
+        plugins:{legend:{display:true,labels:{font:FONT,color:TC,boxWidth:10,boxHeight:10,padding:10}},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>{const v=ctx.parsed.y||0;return v>0?ctx.dataset.label+': '+v+' event'+(v!==1?'s':''):null;}}}},
         scales:{
           x:{ticks:{font:FONT,color:TC,autoSkip:false},grid:{color:'rgba(0,0,0,.04)'},stacked:true},
           y:{ticks:{font:FONT,color:TC,precision:0},grid:{color:'rgba(0,0,0,.05)'},stacked:true}
