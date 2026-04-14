@@ -280,6 +280,36 @@ const MiniCharts = {
     });
 
     /* bars */
+    if (stacked) {
+      /* Shared accumulator across all datasets so segments stack correctly */
+      const stackBase = Array(n).fill(0);
+      const GAP = 1.5; /* px gap between segments for visual separation */
+      datasets.forEach((ds, di) => {
+        ds.data.forEach((v, i) => {
+          if (v == null || v === 0) { return; }
+          const isHov = hov && hov.ptIdx === i;
+          const color = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
+          ctx.fillStyle = color || '#366B98';
+          ctx.globalAlpha = isHov ? 1 : (hov ? 0.65 : 1);
+          const bh = Math.max((v / yRange) * cH - GAP, 1);
+          const bx = p.l + i*bgW + bgW*(1-0.7)/2;
+          const by = p.t + cH - bh - (stackBase[i] / yRange) * cH;
+          /* Round only the top corners of the topmost segment */
+          const isTop = di === datasets.length - 1;
+          const rr = isTop ? Math.min(3, barW * 0.18) : 0;
+          ctx.beginPath();
+          if (rr && ctx.roundRect) {
+            ctx.roundRect(bx, by, barW, bh, [rr, rr, 0, 0]);
+          } else {
+            ctx.rect(bx, by, barW, bh);
+          }
+          ctx.fill();
+          if (di === 0 && geo) geo.bars.push({x:bx, y:p.t, w:barW, h:cH, idx:i, dsIdx:di});
+          stackBase[i] += v;
+        });
+      });
+      ctx.globalAlpha = 1;
+    } else {
     datasets.forEach((ds, di) => {
       const stackBase = Array(n).fill(0);
       ds.data.forEach((v, i) => {
@@ -304,6 +334,7 @@ const MiniCharts = {
       });
     });
     ctx.globalAlpha = 1;
+    } /* end else (non-stacked) */
 
     /* x labels */
     ctx.fillStyle = this._muted; ctx.font = `10px ${this._font}`; ctx.textAlign = 'center';
