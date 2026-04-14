@@ -1321,10 +1321,9 @@ const API = {
       this._lastUpdatedAt = serverTs || Date.now();
       POOL.length = 0;
       data.pool.forEach(e => POOL.push(e));
-      if (data.savedAt) {
-        const syncEl = document.getElementById('syncText');
-        if (syncEl) syncEl.textContent = data.savedAt;
-      }
+      if (data.updatedAt) _dataUpdatedAt = data.updatedAt;
+      if (data.savedAt) setSyncDisplayAndStore(data.savedAt);
+      else if (data.updatedAt) setSyncDisplayAndStore(computeDataSaveDate());
       bootstrapFromPool();
       const isYTD = $s('pageYTD')?.classList.contains('active');
       Object.keys(charts).forEach(k => { if(charts[k]){charts[k].destroy();delete charts[k];} });
@@ -2292,18 +2291,18 @@ function showMonthly(i){
 }
 
 /* ══ LAST UPDATED ══ */
-/* DATA_SAVE_DATE: derived from the most recent startDate in POOL so it always
-   reflects when the source data was last updated. Falls back to a hardcoded
-   value if the pool is empty or dates can't be parsed. */
+/* _dataUpdatedAt: Unix ms timestamp of when data was last saved to the API.
+   Populated from API response. Used for Last Updated display. */
+let _dataUpdatedAt = 0;
+
 function computeDataSaveDate() {
-  let latest = null;
-  POOL.forEach(e => {
-    if (!e.startDate) return;
-    const d = new Date(e.startDate);
-    if (!isNaN(d) && (!latest || d > latest)) latest = d;
-  });
-  if (!latest) return "Mar 19, 2026"; /* fallback */
-  return latest.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  /* If we have a server timestamp, format it */
+  if (_dataUpdatedAt > 0) {
+    const d = new Date(_dataUpdatedAt);
+    return d.toLocaleString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'});
+  }
+  /* Fallback: indicate source data date from the hardcoded bake-in date */
+  return "Mar 19, 2026";
 }
 const DATA_SAVE_DATE = computeDataSaveDate();
 
@@ -2372,7 +2371,10 @@ function setSyncDisplayAndStore(raw) {
 }
 
 function setLastUpdated(){
-  setSyncDisplayAndStore(computeDataSaveDate());
+  /* Only update display if we don't already have a live API date */
+  if (!_lastSyncRaw || _lastSyncRaw === 'Mar 19, 2026') {
+    setSyncDisplayAndStore(computeDataSaveDate());
+  }
 }
 function setConnStatus(){ setLastUpdated(); }
 
@@ -2809,9 +2811,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data && Array.isArray(data.pool) && data.pool.length > 0) {
         POOL.length = 0;
         data.pool.forEach(e => POOL.push(e));
+        if (data.updatedAt) _dataUpdatedAt = data.updatedAt;
         if (data.savedAt) {
-          const syncEl = document.getElementById('syncText');
-          if (data.savedAt) setSyncDisplayAndStore(data.savedAt);
+          setSyncDisplayAndStore(data.savedAt);
+        } else if (data.updatedAt) {
+          setSyncDisplayAndStore(computeDataSaveDate());
         }
         API._lastUpdatedAt = data.updatedAt || Date.now();
         setGhStatus('ok');
