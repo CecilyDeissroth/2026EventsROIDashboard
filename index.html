@@ -119,6 +119,7 @@ const MiniCharts = {
         if (val==null) return null;
         const ctx2 = {label:ds.label||'',parsed:{x:ptIdx,y:val},dataIndex:ptIdx,dataset:ds,datasetIndex:di};
         const txt = cbk?.label ? cbk.label(ctx2) : `${ds.label||''}: ${self._fmtNum(val)}`;
+        if (txt==null) return null;
         const c = Array.isArray(ds.backgroundColor)?ds.backgroundColor[ptIdx]:(ds.borderColor||ds.backgroundColor||'#ccc');
         return dot(c)+' '+txt;
       }).filter(Boolean);
@@ -211,7 +212,7 @@ const MiniCharts = {
   },
 
   /* ── padding: just enough for axes, nothing wasted ── */
-  _p(hasLegend) { return { t: hasLegend ? 24 : 8, r: 8, b: 32, l: 68 }; },
+  _p(hasLegend) { return { t: hasLegend ? 30 : 8, r: 8, b: 32, l: 68 }; },
 
   _drawBar(ctx, W, H, data, options, stacked, geo, hov) {
     const hasLeg = options?.plugins?.legend?.display !== false && (data.datasets||[]).length > 1;
@@ -504,13 +505,16 @@ const MiniCharts = {
       color: Array.isArray(ds.backgroundColor)?ds.backgroundColor[0]:(ds.borderColor||ds.backgroundColor||'#ccc'),
       w: ctx.measureText(ds.label||'').width
     }));
-    const totalW = items.reduce((s,it)=>s+it.w+20,0);
-    let x = Math.max(6, (W-totalW)/2);
-    items.forEach(it=>{
-      ctx.fillStyle=it.color; ctx.fillRect(x, y-7, 8, 8);
-      ctx.fillStyle=this._muted; ctx.textAlign='left';
-      ctx.fillText(it.label, x+12, y+1);
-      x += it.w+20;
+    const itemW = items.map(it => it.w + 24); /* 8px swatch + 4px gap + text + 12px spacing */
+    const totalW = itemW.reduce((s,w)=>s+w,0);
+    /* If items fit on one line, center them; otherwise left-align and allow natural wrap */
+    let x = totalW <= W - 8 ? Math.max(6, (W - totalW) / 2) : 6;
+    items.forEach((it, k) => {
+      if (x + itemW[k] > W - 2) { x = 6; y += 13; } /* wrap to next line */
+      ctx.fillStyle = it.color; ctx.fillRect(x, y - 7, 8, 8);
+      ctx.fillStyle = this._muted; ctx.textAlign = 'left';
+      ctx.fillText(it.label, x + 12, y + 1);
+      x += itemW[k];
     });
   },
 
@@ -1711,7 +1715,7 @@ function renderYTD(){
       options:{
         responsive:true,maintainAspectRatio:false,
         plugins:{legend:{display:true,labels:{font:FONT,color:TC,boxWidth:10,boxHeight:10,padding:10}},
-          tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>ctx.dataset.label+': $'+Math.round(ctx.parsed.y).toLocaleString()}}},
+          tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>{const v=Math.round(ctx.parsed.y||0); return v>0?ctx.dataset.label+': $'+v.toLocaleString():null;}}}},
         scales:{
           x:{ticks:{font:FONT,color:TC,autoSkip:false},grid:{color:'rgba(0,0,0,.04)'},stacked:true},
           y:{ticks:{font:FONT,color:TC,callback:v=>(v/1000000).toFixed(v>=1000000?1:2)+'M'},grid:{color:'rgba(0,0,0,.05)'},stacked:true}
