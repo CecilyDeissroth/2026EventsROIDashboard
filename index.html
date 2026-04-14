@@ -2292,9 +2292,20 @@ function showMonthly(i){
 }
 
 /* ══ LAST UPDATED ══ */
-/* DATA_SAVE_DATE is set once when the source spreadsheet is baked in.
-   Update this string whenever the source data is refreshed. */
-const DATA_SAVE_DATE = "Mar 19, 2026";
+/* DATA_SAVE_DATE: derived from the most recent startDate in POOL so it always
+   reflects when the source data was last updated. Falls back to a hardcoded
+   value if the pool is empty or dates can't be parsed. */
+function computeDataSaveDate() {
+  let latest = null;
+  POOL.forEach(e => {
+    if (!e.startDate) return;
+    const d = new Date(e.startDate);
+    if (!isNaN(d) && (!latest || d > latest)) latest = d;
+  });
+  if (!latest) return "Mar 19, 2026"; /* fallback */
+  return latest.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+}
+const DATA_SAVE_DATE = computeDataSaveDate();
 
 /* ── Timezone-aware Last Updated display ── */
 let _syncShowUTC = false; /* default: local time */
@@ -2361,7 +2372,7 @@ function setSyncDisplayAndStore(raw) {
 }
 
 function setLastUpdated(){
-  setSyncDisplayAndStore(DATA_SAVE_DATE);
+  setSyncDisplayAndStore(computeDataSaveDate());
 }
 function setConnStatus(){ setLastUpdated(); }
 
@@ -2709,7 +2720,7 @@ function bootstrapFromPool(){
 document.addEventListener('DOMContentLoaded', () => {
   try {
   /* Show source data date immediately — API will overwrite if a newer savedAt is returned */
-  setSyncDisplayAndStore(DATA_SAVE_DATE);
+  setSyncDisplayAndStore(computeDataSaveDate());
 
   /* Toggle local ↔ UTC on click */
   const _syncBlock = document.getElementById('syncBlock');
