@@ -1025,8 +1025,8 @@ td.wrap{white-space:normal;min-width:160px}
     <div class="kpi a-navy">  <div class="kpi-lbl">Opportunities</div><div class="kpi-val" id="kv3">—</div><div class="kpi-dl" id="kd3"></div></div>
     <div class="kpi a-orange">  <div class="kpi-lbl">Budgeted (USD)</div><div class="kpi-val" id="kv4">—</div><div class="kpi-dl" id="kd4"></div></div>
     <div class="kpi a-teal"><div class="kpi-lbl">Actuals (USD)</div><div class="kpi-val" id="kv5">—</div><div class="kpi-dl" id="kd5"></div></div>
-    <div class="kpi a-orange"> <div class="kpi-lbl">Cost per MQL</div><div class="kpi-val" id="kv6">—</div><div class="kpi-dl" id="kd6"></div></div>
     <div class="kpi a-teal">  <div class="kpi-lbl">Variance</div><div class="kpi-val" id="kv7">—</div><div class="kpi-dl" id="kd7"></div></div>
+    <div class="kpi a-orange"> <div class="kpi-lbl">Opportunity Value</div><div class="kpi-val" id="kv6">—</div><div class="kpi-dl" id="kd6"></div></div>
   </div>
 
   <!-- TIER SCORECARD -->
@@ -1853,13 +1853,16 @@ function renderMonthly(mi_raw){
   const prevMQLM    = prevEvents.reduce((s,e)=>s+(Number(e.mql)||0),0);
   const prevCPMQL   = (prevActualM > 0 && prevMQLM > 0) ? Math.round(prevActualM / prevMQLM) : 0;
 
+  const totOppValue = mEvents.reduce((s,e)=>s+(Number(e.oppValue)||0),0);
+  const prevOppValue = prevEvents.reduce((s,e)=>s+(Number(e.oppValue)||0),0);
+
   setKPI('k',0,totEvents, totEvents,                     momDelta(totEvents, prevEvents.length, false));
   setKPI('k',1,totMQL,    totMQL.toLocaleString(),        momDelta(totMQL,    prevMQL,   false));
   setKPI('k',2,totSQL,    totSQL.toLocaleString(),        momDelta(totSQL,    prevSQL,   false));
   setKPI('k',3,totOpps,   totOpps.toLocaleString(),       momDelta(totOpps,   prevOpps,  false));
   setKPI('k',4,totBudget, '$'+totBudget.toLocaleString(), momDelta(totBudget, prevBudget,true));
   setKPI('k',5,totActual, '$'+totActual.toLocaleString(), momDelta(totActual, prevActual,true));
-  setKPI('k',6,avgCPMQL,  avgCPMQL>0?'$'+avgCPMQL.toLocaleString():'—', momDelta(avgCPMQL, prevCPMQL, false));
+  setKPI('k',6,totOppValue, totOppValue>0?'$'+totOppValue.toLocaleString():'—', momDelta(totOppValue, prevOppValue, true));
   const varSign = totVar >= 0 ? '+' : '';
   setText('kv7', '$' + Math.abs(totVar).toLocaleString());
   setStyle('kv7','color', totVar <= 0 ? 'var(--c2)' : 'var(--c8)');
