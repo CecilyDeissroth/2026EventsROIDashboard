@@ -1029,8 +1029,9 @@ td.wrap{white-space:normal;min-width:160px}
 
   <!-- MONTHLY KPIs -->
   <div class="sec">Key Performance Indicators — <span id="kpiLbl">December 2026</span></div>
-  <div class="kpi-grid kpi-grid-8">
+  <div class="kpi-grid" style="grid-template-columns:repeat(9,1fr);display:grid;gap:12px;margin-bottom:4px">
     <div class="kpi a-orange"><div class="kpi-lbl">Total Events</div><div class="kpi-val" id="kv0">—</div><div class="kpi-dl" id="kd0"></div></div>
+    <div class="kpi a-blue">  <div class="kpi-lbl">Raw Leads</div><div class="kpi-val" id="kv-raw">—</div><div class="kpi-dl" id="kd-raw"></div></div>
     <div class="kpi a-sky">   <div class="kpi-lbl">MQLs</div><div class="kpi-val" id="kv1">—</div><div class="kpi-dl" id="kd1"></div></div>
     <div class="kpi a-blue">  <div class="kpi-lbl">SQLs</div><div class="kpi-val" id="kv2">—</div><div class="kpi-dl" id="kd2"></div></div>
     <div class="kpi a-navy">  <div class="kpi-lbl">Opportunities</div><div class="kpi-val" id="kv3">—</div><div class="kpi-dl" id="kd3"></div></div>
@@ -1136,6 +1137,7 @@ td.wrap{white-space:normal;min-width:160px}
           <th>Budgeted (USD)</th>
           <th>Actuals (USD)</th>
           <th>Variance</th>
+          <th>Raw Leads</th>
           <th>MQLs</th>
           <th>SQLs</th>
           <th>Opportunities</th>
@@ -1808,7 +1810,7 @@ function renderMonthly(mi_raw){
   /* ── No spreadsheet: show upload prompt everywhere, no stale data ── */
   if (!HAS_SPREADSHEET) {
     ['kv0','kv1','kv2','kv3','kv4','kv5','kv6','kv7',
-     'kd0','kd1','kd2','kd3','kd4','kd5','kd6','kd7'].forEach(id=>setText(id,'—'));
+     'kd0','kd1','kd2','kd3','kd4','kd5','kd6','kd7','kv-raw','kd-raw'].forEach(id=>setText(id,'—'));
     const msg = `<div style="padding:22px;color:var(--muted);font-size:13px;text-align:center">Upload the source spreadsheet to populate ${MO[mi]} reporting.</div>`;
     setHTML('mTierGrid',  msg);
     setHTML('mSpendList', '');
@@ -1872,7 +1874,12 @@ function renderMonthly(mi_raw){
   const totOppValue = mEvents.reduce((s,e)=>s+(Number(e.oppValue)||0),0);
   const prevOppValue = prevEvents.reduce((s,e)=>s+(Number(e.oppValue)||0),0);
 
+  const totRawLeads = mEvents.reduce((s,e)=>s+(Number(e.rawLeads)||0),0);
+  const prevRawLeads = prevEvents.reduce((s,e)=>s+(Number(e.rawLeads)||0),0);
+
   setKPI('k',0,totEvents, totEvents,                     momDelta(totEvents, prevEvents.length, false));
+  const rawEl = $s('kv-raw'); if(rawEl) rawEl.textContent = totRawLeads > 0 ? totRawLeads.toLocaleString() : '—';
+  const rawDl = $s('kd-raw'); if(rawDl){ const d=momDelta(totRawLeads,prevRawLeads,false); rawDl.textContent=d.txt; rawDl.className='kpi-dl '+d.cls; }
   setKPI('k',1,totMQL,    totMQL.toLocaleString(),        momDelta(totMQL,    prevMQL,   false));
   setKPI('k',2,totSQL,    totSQL.toLocaleString(),        momDelta(totSQL,    prevSQL,   false));
   setKPI('k',3,totOpps,   totOpps.toLocaleString(),       momDelta(totOpps,   prevOpps,  false));
@@ -2268,6 +2275,7 @@ function renderEvtTable(mi){
       <td class="num">${fmtMoney(e.budget)}</td>
       <td class="num">${fmtMoney(e.actual)}</td>
       <td class="num ${vc}">${e.actual>0 ? vs+fmtMoney(Math.abs(e.variance||0)) : '—'}</td>
+      <td class="num">${e.rawLeads||0}</td>
       <td class="num cb">${e.mql||0}</td>
       <td class="num">${e.sql||0}</td>
       <td class="num cg">${e.opps||0}</td>
@@ -2279,7 +2287,7 @@ function renderEvtTable(mi){
       <td style="color:var(--muted);white-space:nowrap">${e.commDate||'—'}</td>
       <td class="num" style="color:var(--c5)">${(()=>{ try{ const cd=new Date(e.commDate),sd=new Date(e.startDate); if(!isNaN(cd)&&!isNaN(sd)&&sd>cd) return Math.round((sd-cd)/86400000)+'d'; }catch(err){} return '—'; })()}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="20" style="text-align:center;padding:28px;color:var(--muted)">${HAS_SPREADSHEET ? 'No events found' : 'Upload the source spreadsheet to view event details'} for ${MO[resolvedMi]||'this month'}.</td></tr>`);
+  }).join('') || `<tr><td colspan="21" style="text-align:center;padding:28px;color:var(--muted)">${HAS_SPREADSHEET ? 'No events found' : 'Upload the source spreadsheet to view event details'} for ${MO[resolvedMi]||'this month'}.</td></tr>`);
 }
 
 /* ══ NAVIGATION ══ */
