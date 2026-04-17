@@ -1001,6 +1001,7 @@ td.wrap{white-space:normal;min-width:160px}
           <tr>
             <th>Event Month</th>
             <th>Events</th>
+            <th>Raw Leads</th>
             <th>MQLs</th>
             <th>SQLs</th>
             <th>Opps</th>
@@ -1199,6 +1200,7 @@ td.wrap{white-space:normal;min-width:160px}
             <th style="padding:9px 8px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Source</th>
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Budget ($)</th>
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Actual ($)</th>
+            <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Raw Leads</th>
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">MQLs</th>
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">SQLs</th>
             <th style="padding:9px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--c7);white-space:nowrap">Opps</th>
@@ -1358,7 +1360,8 @@ const D = {
   opps:  [19,23,31,36,32,39,35,43,30,38,35,45],
   budget:[45,53,67,75,70,84,78,92,65,82,77,94],
   actual:[42,55,64,78,67,86,74,88,63,84,73,90],
-  oppValue:[0,0,0,0,0,0,0,0,0,0,0,0]
+  oppValue:[0,0,0,0,0,0,0,0,0,0,0,0],
+  rawLeads:[0,0,0,0,0,0,0,0,0,0,0,0]
 };
 D.roi = D.actual.map((a,i)=> D.mql[i]>0 ? Math.round(a*1000/D.mql[i]) : 0);
 D.variance = D.actual.map((a,i)=>a-D.budget[i]);
@@ -1679,6 +1682,7 @@ function renderYTD(){
     return`<tr data-month="${i}" style="cursor:pointer;${isActive?'background:rgba(0,150,206,.06);font-weight:600':''}">
       <td style="font-weight:700;color:var(--text)">${m} ${isActive?'<span style="font-size:10px;background:var(--c5);color:#fff;padding:1px 7px;border-radius:10px;margin-left:4px;font-weight:600">current</span>':''}</td>
       <td class="num">${D.events[i]}</td>
+      <td class="num">${(D.rawLeads&&D.rawLeads[i]>0)?D.rawLeads[i]:'—'}</td>
       <td class="num cb">${D.mql[i]}</td>
       <td class="num">${D.sql[i]}</td>
       <td class="num cg">${D.opps[i]}</td>
@@ -2413,6 +2417,7 @@ const CELL_CFG = [
   ['source',    'select',   130, ['Attended in 2025','New for 2026','Other']],
   ['budget',    'number',   90],
   ['actual',    'number',   90],
+  ['rawLeads',  'number',   80],
   ['mql',       'number',   60],
   ['sql',       'number',   60],
   ['opps',      'number',   60],
@@ -2535,7 +2540,7 @@ function gridAddRow(){
   _gridDraft.push({
     abbr:'', name:'New Event', tier:'Tier 3', source:'New for 2026',
     goal:'Lead Generation', budget:0, actual:0, variance:0,
-    mql:0, sql:0, opps:0, oppValue:0, comm:'', commDate:'',
+    mql:0, sql:0, opps:0, oppValue:0, rawLeads:0, comm:'', commDate:'',
     trip:'', startDate:'', endDate:'', monthIdx:0,
     sentiment:'Neutral', status:'Completed', quarter:'', bu:'', notes:''
   });
@@ -2565,7 +2570,7 @@ function gridApply(){
 
   /* Recompute D aggregates from POOL */
   const blank12=()=>Array(12).fill(0);
-  const newD={events:blank12(),mql:blank12(),sql:blank12(),opps:blank12(),oppValue:blank12(),budget:blank12(),actual:blank12(),variance:blank12(),roi:blank12()};
+  const newD={events:blank12(),mql:blank12(),sql:blank12(),opps:blank12(),oppValue:blank12(),rawLeads:blank12(),budget:blank12(),actual:blank12(),variance:blank12(),roi:blank12()};
   const newTMI={'Tier 1':blank12(),'Tier 2':blank12(),'Tier 3':blank12(),'Tier 4':blank12()};
   const srcCnt={}, cpmqlByTier={'Tier 1':[],'Tier 2':[],'Tier 3':[],'Tier 4':[]};
   const goalCnt={'Relationship Building':0,'Lead Generation':0};
@@ -2575,6 +2580,7 @@ function gridApply(){
     if(m<0||m>11) return;
     newD.events[m]++;
     newD.mql[m]+=(Number(e.mql)||0);
+    newD.rawLeads[m]+=(Number(e.rawLeads)||0);
     newD.sql[m]+=(Number(e.sql)||0);
     newD.opps[m]+=(Number(e.opps)||0);
     newD.oppValue[m]+=(Number(e.oppValue)||0);
@@ -2690,7 +2696,7 @@ function bootstrapFromPool(){
 
   /* Compute D aggregates */
   const blank12=()=>Array(12).fill(0);
-  const newD={events:blank12(),mql:blank12(),sql:blank12(),opps:blank12(),oppValue:blank12(),budget:blank12(),actual:blank12(),variance:blank12(),roi:blank12()};
+  const newD={events:blank12(),mql:blank12(),sql:blank12(),opps:blank12(),oppValue:blank12(),rawLeads:blank12(),budget:blank12(),actual:blank12(),variance:blank12(),roi:blank12()};
   const newTMI={'Tier 1':blank12(),'Tier 2':blank12(),'Tier 3':blank12(),'Tier 4':blank12()};
   const srcCnt={},cpmqlByTier={'Tier 1':[],'Tier 2':[],'Tier 3':[],'Tier 4':[]};
   const goalCnt={'Relationship Building':0,'Lead Generation':0};
@@ -2700,6 +2706,7 @@ function bootstrapFromPool(){
     if(m<0||m>11) return;
     newD.events[m]++;
     newD.mql[m]+=(Number(e.mql)||0);
+    newD.rawLeads[m]+=(Number(e.rawLeads)||0);
     newD.sql[m]+=(Number(e.sql)||0);
     newD.opps[m]+=(Number(e.opps)||0);
     newD.oppValue[m]+=(Number(e.oppValue)||0);
