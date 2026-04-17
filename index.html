@@ -936,7 +936,8 @@ td.wrap{white-space:normal;min-width:160px}
 
   <!-- YTD KPIs -->
   <div class="sec">Year-to-Date KPIs</div>
-  <div class="kpi-grid kpi-grid-7">
+  <div class="kpi-grid kpi-grid-8">
+    <div class="kpi ytd-k2"><div class="kpi-lbl">Total Raw Leads</div><div class="kpi-val" id="yk-raw">—</div><div class="kpi-dl neu" id="yd-raw"></div></div>
     <div class="kpi ytd-k1"><div class="kpi-lbl">Total MQLs</div><div class="kpi-val" id="yk1">—</div><div class="kpi-dl neu" id="yd1"></div></div>
     <div class="kpi ytd-k2"><div class="kpi-lbl">Total SQLs</div><div class="kpi-val" id="yk2">—</div><div class="kpi-dl neu" id="yd2"></div></div>
     <div class="kpi ytd-k3"><div class="kpi-lbl">Total Opps</div><div class="kpi-val" id="yk3">—</div><div class="kpi-dl neu" id="yd3"></div></div>
@@ -1586,7 +1587,7 @@ function renderYTD(){
     setText('ytd-total-opps','—');
     setText('ytd-total-rev','—');
     // KPIs
-    ['yk0','yk1','yk2','yk3','yk4','yk5','yk6','yk7','yk8','yk-fybud'].forEach(id=>setText(id,'—'));
+    ['yk0','yk1','yk2','yk3','yk4','yk5','yk6','yk7','yk8','yk-fybud','yk-raw'].forEach(id=>setText(id,'—'));
     setHTML('ytdTierGrid', '<div style="padding:18px;color:var(--muted);font-size:13px">Upload the source spreadsheet to populate YTD reporting.</div>');
     // Goals + ROI rows
     setHTML('summaryGoalDuo', '');
@@ -1653,6 +1654,9 @@ function renderYTD(){
 
   // YTD KPIs (7 cards — no Total Events, no Budgeted)
   const totCPOpp = (totActual>0&&totOpps>0) ? Math.round(totActual/totOpps) : 0;
+  const totRawLeads = sum(D.rawLeads||Array(12).fill(0));
+  setText('yk-raw', totRawLeads > 0 ? totRawLeads.toLocaleString() : '—');
+  const el_ydraw = $s('yd-raw'); if(el_ydraw){el_ydraw.textContent='YTD Total';el_ydraw.className='kpi-dl neu';}
   setKPI('y',1,totMQL,totMQL.toLocaleString(),'');
   setKPI('y',2,totSQL,totSQL.toLocaleString(),'');
   setKPI('y',3,totOpps,totOpps,'');
