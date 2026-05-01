@@ -845,6 +845,18 @@ td.wrap{white-space:normal;min-width:160px}
   <button class="nav-tab active" id="tabYTD">
     <span class="tab-icon">📊</span> YTD Overview
   </button>
+  <button class="nav-tab" id="tabQ1">
+    <span class="tab-icon">📆</span> Q1
+  </button>
+  <button class="nav-tab" id="tabQ2">
+    <span class="tab-icon">📆</span> Q2
+  </button>
+  <button class="nav-tab" id="tabQ3">
+    <span class="tab-icon">📆</span> Q3
+  </button>
+  <button class="nav-tab" id="tabQ4">
+    <span class="tab-icon">📆</span> Q4
+  </button>
   <button class="nav-tab" id="tabMonthly">
     <span class="tab-icon">📅</span> Monthly Detail
   </button>
@@ -1020,6 +1032,424 @@ td.wrap{white-space:normal;min-width:160px}
     <div class="click-hint">👆 Click any row to jump to that month's full detail view</div>
   </div>
 
+</main>
+</div>
+
+<!-- ══ QUARTERLY PAGES ══ -->
+<!-- Helper macro: we generate Q1–Q4 pages with prefixed IDs -->
+<div class="page" id="pageQ1">
+<main>
+  <div class="sec">Key Performance Indicators — <span id="q1-kpiLbl">Q1 2026 (Jan – Mar)</span></div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(9,1fr);display:grid;gap:12px;margin-bottom:4px">
+    <div class="kpi a-orange"><div class="kpi-lbl">Total Events</div><div class="kpi-val" id="q1-kv0">—</div><div class="kpi-dl" id="q1-kd0"></div></div>
+    <div class="kpi a-blue">  <div class="kpi-lbl">Raw Leads</div><div class="kpi-val" id="q1-kv-raw">—</div><div class="kpi-dl" id="q1-kd-raw"></div></div>
+    <div class="kpi a-sky">   <div class="kpi-lbl">MQLs</div><div class="kpi-val" id="q1-kv1">—</div><div class="kpi-dl" id="q1-kd1"></div></div>
+    <div class="kpi a-blue">  <div class="kpi-lbl">SQLs</div><div class="kpi-val" id="q1-kv2">—</div><div class="kpi-dl" id="q1-kd2"></div></div>
+    <div class="kpi a-navy">  <div class="kpi-lbl">Opportunities</div><div class="kpi-val" id="q1-kv3">—</div><div class="kpi-dl" id="q1-kd3"></div></div>
+    <div class="kpi a-orange"><div class="kpi-lbl">Budgeted (USD)</div><div class="kpi-val" id="q1-kv4">—</div><div class="kpi-dl" id="q1-kd4"></div></div>
+    <div class="kpi a-teal">  <div class="kpi-lbl">Actuals (USD)</div><div class="kpi-val" id="q1-kv5">—</div><div class="kpi-dl" id="q1-kd5"></div></div>
+    <div class="kpi a-teal">  <div class="kpi-lbl">Variance</div><div class="kpi-val" id="q1-kv7">—</div><div class="kpi-dl" id="q1-kd7"></div></div>
+    <div class="kpi a-orange"><div class="kpi-lbl">Opportunity Value</div><div class="kpi-val" id="q1-kv6">—</div><div class="kpi-dl" id="q1-kd6"></div></div>
+  </div>
+  <div class="sec">Performance by Tier — <span id="q1-tierLbl">Q1 2026</span></div>
+  <div class="panel" style="margin-bottom:16px">
+    <div class="pt">Tier Scorecard <span class="pt-r" id="q1-tierScoreLbl"></span></div>
+    <div class="ps">Events, MQLs, SQLs, Opportunities and Cost per MQL per tier for Q1</div>
+    <div class="tier-grid" id="q1-mTierGrid"></div>
+  </div>
+  <div class="sec">Pipeline, Spend &amp; Goals</div>
+  <div class="g3">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Pipeline Metrics <span class="pt-r">Q1 2026</span></div>
+      <div class="ps">MQLs, SQLs and Opportunities for Q1</div>
+      <div style="flex:1;min-height:0;position:relative"><canvas id="q1-mFunnelChart" style="width:100%;height:100%"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Variance</div>
+      <div class="ps">By tier — variance shown per tier</div>
+      <div class="spend-list" id="q1-mSpendList"></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Event Purpose</div>
+      <div class="ps">Relationship Building &amp; Lead Generation</div>
+      <div class="goal-duo" id="q1-mGoalDuo"></div>
+      <div class="prog-list" id="q1-mGoalProgs"></div>
+    </div>
+  </div>
+  <div class="g4">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Budget Origin <span class="pt-r">by source</span></div>
+      <div class="ps">Whether event budgets are based on 2025 actuals or are new for 2026</div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center">
+        <div style="position:relative;height:100%;min-height:140px"><canvas id="q1-mSrcChart" style="width:100%;height:100%"></canvas></div>
+        <div class="dleg" id="q1-mSrcLeg" style="align-self:center"></div>
+      </div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Cost per MQL by Tier</div>
+      <div class="ps">Average cost per MQL per event tier for Q1</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="q1-mROIChart" style="width:100%;height:100%"></canvas></div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;flex-shrink:0" id="q1-mROIRows"></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Cost per Opp by Tier</div>
+      <div class="ps">Average cost per opportunity per event tier for Q1</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="q1-mCPOppChart" style="width:100%;height:100%"></canvas></div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;flex-shrink:0" id="q1-mCPOppRows"></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Tier Distribution <span class="pt-r" id="q1-tierDistLbl">Q1</span></div>
+      <div class="ps">Share of events by tier this quarter</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="q1-mTierChart" style="width:100%;height:100%"></canvas></div>
+      <div class="dleg" id="q1-mTierLeg" style="flex-shrink:0;margin-top:8px"></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="panel">
+      <div class="pt">Communication Log <span class="pt-r" id="q1-commLbl">Q1 2026</span></div>
+      <div class="ps">Logistics Documents and Pre-Show Presentations for Q1</div>
+      <div class="comm-list" id="q1-mCommList"></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Trip Report Results</div>
+      <div class="ps">Post-event debrief highlights and outcomes</div>
+      <div class="trip-grid-2" id="q1-mTripGrid"></div>
+    </div>
+  </div>
+  <div class="sec">Q1 Overview — <span id="q1-tableLbl">Q1 2026</span></div>
+  <div class="panel">
+    <div class="pt">Event Data for <span id="q1-tableLblInner">Q1 2026</span></div>
+    <div class="filter-bar">
+      <span class="fl">Filter:</span>
+      <select class="fs" id="q1-fTier"><option value="">All Tiers</option><option>Tier 1</option><option>Tier 2</option><option>Tier 3</option><option>Tier 4</option></select>
+      <select class="fs" id="q1-fGoal"><option value="">All Event Purposes</option><option>Relationship Building</option><option>Lead Generation</option></select>
+      <select class="fs" id="q1-fSource"><option value="">All Sources</option></select>
+    </div>
+    <div class="tbl-scroll">
+      <table style="min-width:1400px">
+        <thead><tr>
+          <th>Abbr</th><th>Full Name</th><th>Start Date</th><th>End Date</th><th>Tier</th>
+          <th>Event Purpose</th><th>Source</th><th>Budgeted (USD)</th><th>Actuals (USD)</th>
+          <th>Variance</th><th>Raw Leads</th><th>MQLs</th><th>SQLs</th><th>Opportunities</th>
+          <th>Opp Value (USD)</th><th>Cost per MQL</th><th>Cost per Opp</th>
+          <th>Trip Report Results</th><th>Comm Type</th><th>Comm Date</th><th>Days Prior</th>
+        </tr></thead>
+        <tbody id="q1-evtBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+</div>
+
+<div class="page" id="pageQ2">
+<main>
+  <div class="sec">Key Performance Indicators — <span id="q2-kpiLbl">Q2 2026 (Apr – Jun)</span></div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(9,1fr);display:grid;gap:12px;margin-bottom:4px">
+    <div class="kpi a-orange"><div class="kpi-lbl">Total Events</div><div class="kpi-val" id="q2-kv0">—</div><div class="kpi-dl" id="q2-kd0"></div></div>
+    <div class="kpi a-blue">  <div class="kpi-lbl">Raw Leads</div><div class="kpi-val" id="q2-kv-raw">—</div><div class="kpi-dl" id="q2-kd-raw"></div></div>
+    <div class="kpi a-sky">   <div class="kpi-lbl">MQLs</div><div class="kpi-val" id="q2-kv1">—</div><div class="kpi-dl" id="q2-kd1"></div></div>
+    <div class="kpi a-blue">  <div class="kpi-lbl">SQLs</div><div class="kpi-val" id="q2-kv2">—</div><div class="kpi-dl" id="q2-kd2"></div></div>
+    <div class="kpi a-navy">  <div class="kpi-lbl">Opportunities</div><div class="kpi-val" id="q2-kv3">—</div><div class="kpi-dl" id="q2-kd3"></div></div>
+    <div class="kpi a-orange"><div class="kpi-lbl">Budgeted (USD)</div><div class="kpi-val" id="q2-kv4">—</div><div class="kpi-dl" id="q2-kd4"></div></div>
+    <div class="kpi a-teal">  <div class="kpi-lbl">Actuals (USD)</div><div class="kpi-val" id="q2-kv5">—</div><div class="kpi-dl" id="q2-kd5"></div></div>
+    <div class="kpi a-teal">  <div class="kpi-lbl">Variance</div><div class="kpi-val" id="q2-kv7">—</div><div class="kpi-dl" id="q2-kd7"></div></div>
+    <div class="kpi a-orange"><div class="kpi-lbl">Opportunity Value</div><div class="kpi-val" id="q2-kv6">—</div><div class="kpi-dl" id="q2-kd6"></div></div>
+  </div>
+  <div class="sec">Performance by Tier — <span id="q2-tierLbl">Q2 2026</span></div>
+  <div class="panel" style="margin-bottom:16px">
+    <div class="pt">Tier Scorecard <span class="pt-r" id="q2-tierScoreLbl"></span></div>
+    <div class="ps">Events, MQLs, SQLs, Opportunities and Cost per MQL per tier for Q2</div>
+    <div class="tier-grid" id="q2-mTierGrid"></div>
+  </div>
+  <div class="sec">Pipeline, Spend &amp; Goals</div>
+  <div class="g3">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Pipeline Metrics <span class="pt-r">Q2 2026</span></div>
+      <div class="ps">MQLs, SQLs and Opportunities for Q2</div>
+      <div style="flex:1;min-height:0;position:relative"><canvas id="q2-mFunnelChart" style="width:100%;height:100%"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Variance</div>
+      <div class="ps">By tier — variance shown per tier</div>
+      <div class="spend-list" id="q2-mSpendList"></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Event Purpose</div>
+      <div class="ps">Relationship Building &amp; Lead Generation</div>
+      <div class="goal-duo" id="q2-mGoalDuo"></div>
+      <div class="prog-list" id="q2-mGoalProgs"></div>
+    </div>
+  </div>
+  <div class="g4">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Budget Origin <span class="pt-r">by source</span></div>
+      <div class="ps">Whether event budgets are based on 2025 actuals or are new for 2026</div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center">
+        <div style="position:relative;height:100%;min-height:140px"><canvas id="q2-mSrcChart" style="width:100%;height:100%"></canvas></div>
+        <div class="dleg" id="q2-mSrcLeg" style="align-self:center"></div>
+      </div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Cost per MQL by Tier</div>
+      <div class="ps">Average cost per MQL per event tier for Q2</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="q2-mROIChart" style="width:100%;height:100%"></canvas></div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;flex-shrink:0" id="q2-mROIRows"></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Cost per Opp by Tier</div>
+      <div class="ps">Average cost per opportunity per event tier for Q2</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="q2-mCPOppChart" style="width:100%;height:100%"></canvas></div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;flex-shrink:0" id="q2-mCPOppRows"></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Tier Distribution <span class="pt-r" id="q2-tierDistLbl">Q2</span></div>
+      <div class="ps">Share of events by tier this quarter</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="q2-mTierChart" style="width:100%;height:100%"></canvas></div>
+      <div class="dleg" id="q2-mTierLeg" style="flex-shrink:0;margin-top:8px"></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="panel">
+      <div class="pt">Communication Log <span class="pt-r" id="q2-commLbl">Q2 2026</span></div>
+      <div class="ps">Logistics Documents and Pre-Show Presentations for Q2</div>
+      <div class="comm-list" id="q2-mCommList"></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Trip Report Results</div>
+      <div class="ps">Post-event debrief highlights and outcomes</div>
+      <div class="trip-grid-2" id="q2-mTripGrid"></div>
+    </div>
+  </div>
+  <div class="sec">Q2 Overview — <span id="q2-tableLbl">Q2 2026</span></div>
+  <div class="panel">
+    <div class="pt">Event Data for <span id="q2-tableLblInner">Q2 2026</span></div>
+    <div class="filter-bar">
+      <span class="fl">Filter:</span>
+      <select class="fs" id="q2-fTier"><option value="">All Tiers</option><option>Tier 1</option><option>Tier 2</option><option>Tier 3</option><option>Tier 4</option></select>
+      <select class="fs" id="q2-fGoal"><option value="">All Event Purposes</option><option>Relationship Building</option><option>Lead Generation</option></select>
+      <select class="fs" id="q2-fSource"><option value="">All Sources</option></select>
+    </div>
+    <div class="tbl-scroll">
+      <table style="min-width:1400px">
+        <thead><tr>
+          <th>Abbr</th><th>Full Name</th><th>Start Date</th><th>End Date</th><th>Tier</th>
+          <th>Event Purpose</th><th>Source</th><th>Budgeted (USD)</th><th>Actuals (USD)</th>
+          <th>Variance</th><th>Raw Leads</th><th>MQLs</th><th>SQLs</th><th>Opportunities</th>
+          <th>Opp Value (USD)</th><th>Cost per MQL</th><th>Cost per Opp</th>
+          <th>Trip Report Results</th><th>Comm Type</th><th>Comm Date</th><th>Days Prior</th>
+        </tr></thead>
+        <tbody id="q2-evtBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+</div>
+
+<div class="page" id="pageQ3">
+<main>
+  <div class="sec">Key Performance Indicators — <span id="q3-kpiLbl">Q3 2026 (Jul – Sep)</span></div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(9,1fr);display:grid;gap:12px;margin-bottom:4px">
+    <div class="kpi a-orange"><div class="kpi-lbl">Total Events</div><div class="kpi-val" id="q3-kv0">—</div><div class="kpi-dl" id="q3-kd0"></div></div>
+    <div class="kpi a-blue">  <div class="kpi-lbl">Raw Leads</div><div class="kpi-val" id="q3-kv-raw">—</div><div class="kpi-dl" id="q3-kd-raw"></div></div>
+    <div class="kpi a-sky">   <div class="kpi-lbl">MQLs</div><div class="kpi-val" id="q3-kv1">—</div><div class="kpi-dl" id="q3-kd1"></div></div>
+    <div class="kpi a-blue">  <div class="kpi-lbl">SQLs</div><div class="kpi-val" id="q3-kv2">—</div><div class="kpi-dl" id="q3-kd2"></div></div>
+    <div class="kpi a-navy">  <div class="kpi-lbl">Opportunities</div><div class="kpi-val" id="q3-kv3">—</div><div class="kpi-dl" id="q3-kd3"></div></div>
+    <div class="kpi a-orange"><div class="kpi-lbl">Budgeted (USD)</div><div class="kpi-val" id="q3-kv4">—</div><div class="kpi-dl" id="q3-kd4"></div></div>
+    <div class="kpi a-teal">  <div class="kpi-lbl">Actuals (USD)</div><div class="kpi-val" id="q3-kv5">—</div><div class="kpi-dl" id="q3-kd5"></div></div>
+    <div class="kpi a-teal">  <div class="kpi-lbl">Variance</div><div class="kpi-val" id="q3-kv7">—</div><div class="kpi-dl" id="q3-kd7"></div></div>
+    <div class="kpi a-orange"><div class="kpi-lbl">Opportunity Value</div><div class="kpi-val" id="q3-kv6">—</div><div class="kpi-dl" id="q3-kd6"></div></div>
+  </div>
+  <div class="sec">Performance by Tier — <span id="q3-tierLbl">Q3 2026</span></div>
+  <div class="panel" style="margin-bottom:16px">
+    <div class="pt">Tier Scorecard <span class="pt-r" id="q3-tierScoreLbl"></span></div>
+    <div class="ps">Events, MQLs, SQLs, Opportunities and Cost per MQL per tier for Q3</div>
+    <div class="tier-grid" id="q3-mTierGrid"></div>
+  </div>
+  <div class="sec">Pipeline, Spend &amp; Goals</div>
+  <div class="g3">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Pipeline Metrics <span class="pt-r">Q3 2026</span></div>
+      <div class="ps">MQLs, SQLs and Opportunities for Q3</div>
+      <div style="flex:1;min-height:0;position:relative"><canvas id="q3-mFunnelChart" style="width:100%;height:100%"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Variance</div>
+      <div class="ps">By tier — variance shown per tier</div>
+      <div class="spend-list" id="q3-mSpendList"></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Event Purpose</div>
+      <div class="ps">Relationship Building &amp; Lead Generation</div>
+      <div class="goal-duo" id="q3-mGoalDuo"></div>
+      <div class="prog-list" id="q3-mGoalProgs"></div>
+    </div>
+  </div>
+  <div class="g4">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Budget Origin <span class="pt-r">by source</span></div>
+      <div class="ps">Whether event budgets are based on 2025 actuals or are new for 2026</div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center">
+        <div style="position:relative;height:100%;min-height:140px"><canvas id="q3-mSrcChart" style="width:100%;height:100%"></canvas></div>
+        <div class="dleg" id="q3-mSrcLeg" style="align-self:center"></div>
+      </div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Cost per MQL by Tier</div>
+      <div class="ps">Average cost per MQL per event tier for Q3</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="q3-mROIChart" style="width:100%;height:100%"></canvas></div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;flex-shrink:0" id="q3-mROIRows"></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Cost per Opp by Tier</div>
+      <div class="ps">Average cost per opportunity per event tier for Q3</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="q3-mCPOppChart" style="width:100%;height:100%"></canvas></div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;flex-shrink:0" id="q3-mCPOppRows"></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Tier Distribution <span class="pt-r" id="q3-tierDistLbl">Q3</span></div>
+      <div class="ps">Share of events by tier this quarter</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="q3-mTierChart" style="width:100%;height:100%"></canvas></div>
+      <div class="dleg" id="q3-mTierLeg" style="flex-shrink:0;margin-top:8px"></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="panel">
+      <div class="pt">Communication Log <span class="pt-r" id="q3-commLbl">Q3 2026</span></div>
+      <div class="ps">Logistics Documents and Pre-Show Presentations for Q3</div>
+      <div class="comm-list" id="q3-mCommList"></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Trip Report Results</div>
+      <div class="ps">Post-event debrief highlights and outcomes</div>
+      <div class="trip-grid-2" id="q3-mTripGrid"></div>
+    </div>
+  </div>
+  <div class="sec">Q3 Overview — <span id="q3-tableLbl">Q3 2026</span></div>
+  <div class="panel">
+    <div class="pt">Event Data for <span id="q3-tableLblInner">Q3 2026</span></div>
+    <div class="filter-bar">
+      <span class="fl">Filter:</span>
+      <select class="fs" id="q3-fTier"><option value="">All Tiers</option><option>Tier 1</option><option>Tier 2</option><option>Tier 3</option><option>Tier 4</option></select>
+      <select class="fs" id="q3-fGoal"><option value="">All Event Purposes</option><option>Relationship Building</option><option>Lead Generation</option></select>
+      <select class="fs" id="q3-fSource"><option value="">All Sources</option></select>
+    </div>
+    <div class="tbl-scroll">
+      <table style="min-width:1400px">
+        <thead><tr>
+          <th>Abbr</th><th>Full Name</th><th>Start Date</th><th>End Date</th><th>Tier</th>
+          <th>Event Purpose</th><th>Source</th><th>Budgeted (USD)</th><th>Actuals (USD)</th>
+          <th>Variance</th><th>Raw Leads</th><th>MQLs</th><th>SQLs</th><th>Opportunities</th>
+          <th>Opp Value (USD)</th><th>Cost per MQL</th><th>Cost per Opp</th>
+          <th>Trip Report Results</th><th>Comm Type</th><th>Comm Date</th><th>Days Prior</th>
+        </tr></thead>
+        <tbody id="q3-evtBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+</div>
+
+<div class="page" id="pageQ4">
+<main>
+  <div class="sec">Key Performance Indicators — <span id="q4-kpiLbl">Q4 2026 (Oct – Dec)</span></div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(9,1fr);display:grid;gap:12px;margin-bottom:4px">
+    <div class="kpi a-orange"><div class="kpi-lbl">Total Events</div><div class="kpi-val" id="q4-kv0">—</div><div class="kpi-dl" id="q4-kd0"></div></div>
+    <div class="kpi a-blue">  <div class="kpi-lbl">Raw Leads</div><div class="kpi-val" id="q4-kv-raw">—</div><div class="kpi-dl" id="q4-kd-raw"></div></div>
+    <div class="kpi a-sky">   <div class="kpi-lbl">MQLs</div><div class="kpi-val" id="q4-kv1">—</div><div class="kpi-dl" id="q4-kd1"></div></div>
+    <div class="kpi a-blue">  <div class="kpi-lbl">SQLs</div><div class="kpi-val" id="q4-kv2">—</div><div class="kpi-dl" id="q4-kd2"></div></div>
+    <div class="kpi a-navy">  <div class="kpi-lbl">Opportunities</div><div class="kpi-val" id="q4-kv3">—</div><div class="kpi-dl" id="q4-kd3"></div></div>
+    <div class="kpi a-orange"><div class="kpi-lbl">Budgeted (USD)</div><div class="kpi-val" id="q4-kv4">—</div><div class="kpi-dl" id="q4-kd4"></div></div>
+    <div class="kpi a-teal">  <div class="kpi-lbl">Actuals (USD)</div><div class="kpi-val" id="q4-kv5">—</div><div class="kpi-dl" id="q4-kd5"></div></div>
+    <div class="kpi a-teal">  <div class="kpi-lbl">Variance</div><div class="kpi-val" id="q4-kv7">—</div><div class="kpi-dl" id="q4-kd7"></div></div>
+    <div class="kpi a-orange"><div class="kpi-lbl">Opportunity Value</div><div class="kpi-val" id="q4-kv6">—</div><div class="kpi-dl" id="q4-kd6"></div></div>
+  </div>
+  <div class="sec">Performance by Tier — <span id="q4-tierLbl">Q4 2026</span></div>
+  <div class="panel" style="margin-bottom:16px">
+    <div class="pt">Tier Scorecard <span class="pt-r" id="q4-tierScoreLbl"></span></div>
+    <div class="ps">Events, MQLs, SQLs, Opportunities and Cost per MQL per tier for Q4</div>
+    <div class="tier-grid" id="q4-mTierGrid"></div>
+  </div>
+  <div class="sec">Pipeline, Spend &amp; Goals</div>
+  <div class="g3">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Pipeline Metrics <span class="pt-r">Q4 2026</span></div>
+      <div class="ps">MQLs, SQLs and Opportunities for Q4</div>
+      <div style="flex:1;min-height:0;position:relative"><canvas id="q4-mFunnelChart" style="width:100%;height:100%"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Variance</div>
+      <div class="ps">By tier — variance shown per tier</div>
+      <div class="spend-list" id="q4-mSpendList"></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Event Purpose</div>
+      <div class="ps">Relationship Building &amp; Lead Generation</div>
+      <div class="goal-duo" id="q4-mGoalDuo"></div>
+      <div class="prog-list" id="q4-mGoalProgs"></div>
+    </div>
+  </div>
+  <div class="g4">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Budget Origin <span class="pt-r">by source</span></div>
+      <div class="ps">Whether event budgets are based on 2025 actuals or are new for 2026</div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center">
+        <div style="position:relative;height:100%;min-height:140px"><canvas id="q4-mSrcChart" style="width:100%;height:100%"></canvas></div>
+        <div class="dleg" id="q4-mSrcLeg" style="align-self:center"></div>
+      </div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Cost per MQL by Tier</div>
+      <div class="ps">Average cost per MQL per event tier for Q4</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="q4-mROIChart" style="width:100%;height:100%"></canvas></div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;flex-shrink:0" id="q4-mROIRows"></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Cost per Opp by Tier</div>
+      <div class="ps">Average cost per opportunity per event tier for Q4</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="q4-mCPOppChart" style="width:100%;height:100%"></canvas></div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;flex-shrink:0" id="q4-mCPOppRows"></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="pt">Tier Distribution <span class="pt-r" id="q4-tierDistLbl">Q4</span></div>
+      <div class="ps">Share of events by tier this quarter</div>
+      <div style="flex:1;min-height:0;position:relative;min-height:120px"><canvas id="q4-mTierChart" style="width:100%;height:100%"></canvas></div>
+      <div class="dleg" id="q4-mTierLeg" style="flex-shrink:0;margin-top:8px"></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="panel">
+      <div class="pt">Communication Log <span class="pt-r" id="q4-commLbl">Q4 2026</span></div>
+      <div class="ps">Logistics Documents and Pre-Show Presentations for Q4</div>
+      <div class="comm-list" id="q4-mCommList"></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Trip Report Results</div>
+      <div class="ps">Post-event debrief highlights and outcomes</div>
+      <div class="trip-grid-2" id="q4-mTripGrid"></div>
+    </div>
+  </div>
+  <div class="sec">Q4 Overview — <span id="q4-tableLbl">Q4 2026</span></div>
+  <div class="panel">
+    <div class="pt">Event Data for <span id="q4-tableLblInner">Q4 2026</span></div>
+    <div class="filter-bar">
+      <span class="fl">Filter:</span>
+      <select class="fs" id="q4-fTier"><option value="">All Tiers</option><option>Tier 1</option><option>Tier 2</option><option>Tier 3</option><option>Tier 4</option></select>
+      <select class="fs" id="q4-fGoal"><option value="">All Event Purposes</option><option>Relationship Building</option><option>Lead Generation</option></select>
+      <select class="fs" id="q4-fSource"><option value="">All Sources</option></select>
+    </div>
+    <div class="tbl-scroll">
+      <table style="min-width:1400px">
+        <thead><tr>
+          <th>Abbr</th><th>Full Name</th><th>Start Date</th><th>End Date</th><th>Tier</th>
+          <th>Event Purpose</th><th>Source</th><th>Budgeted (USD)</th><th>Actuals (USD)</th>
+          <th>Variance</th><th>Raw Leads</th><th>MQLs</th><th>SQLs</th><th>Opportunities</th>
+          <th>Opp Value (USD)</th><th>Cost per MQL</th><th>Cost per Opp</th>
+          <th>Trip Report Results</th><th>Comm Type</th><th>Comm Date</th><th>Days Prior</th>
+        </tr></thead>
+        <tbody id="q4-evtBody"></tbody>
+      </table>
+    </div>
+  </div>
 </main>
 </div>
 
@@ -2290,13 +2720,341 @@ function renderEvtTable(mi){
   }).join('') || `<tr><td colspan="21" style="text-align:center;padding:28px;color:var(--muted)">${HAS_SPREADSHEET ? 'No events found' : 'Upload the source spreadsheet to view event details'} for ${MO[resolvedMi]||'this month'}.</td></tr>`);
 }
 
+/* ══ QUARTERLY PAGE ══ */
+/* Quarter month index ranges: Q1=0-2, Q2=3-5, Q3=6-8, Q4=9-11 */
+const Q_MONTHS = { 1:[0,1,2], 2:[3,4,5], 3:[6,7,8], 4:[9,10,11] };
+const Q_LABELS = { 1:'Q1 2026 (Jan – Mar)', 2:'Q2 2026 (Apr – Jun)', 3:'Q3 2026 (Jul – Sep)', 4:'Q4 2026 (Oct – Dec)' };
+const Q_SHORT  = { 1:'Q1 2026', 2:'Q2 2026', 3:'Q3 2026', 4:'Q4 2026' };
+
+function renderQuarterly(qNum) {
+  const p = 'q' + qNum + '-';   /* ID prefix, e.g. "q1-" */
+  const monthIdxs = Q_MONTHS[qNum];
+  const qLabel    = Q_LABELS[qNum];
+  const qShort    = Q_SHORT[qNum];
+
+  /* Update text labels */
+  setText(p+'kpiLbl',       qLabel);
+  setText(p+'tierLbl',      qShort);
+  setText(p+'tierScoreLbl', qShort);
+  setText(p+'tableLbl',     qShort);
+  setText(p+'tableLblInner',qShort);
+  setText(p+'commLbl',      qShort);
+  setText(p+'tierDistLbl',  'Q'+qNum);
+
+  /* Gather all events for these 3 months */
+  const qEvents = POOL.filter(e => monthIdxs.includes(Number(e.monthIdx)));
+
+  if (!HAS_SPREADSHEET) {
+    const msg = `<div style="padding:22px;color:var(--muted);font-size:13px;text-align:center">Upload the source spreadsheet to populate ${qShort} reporting.</div>`;
+    [p+'mTierGrid',p+'mSpendList',p+'mGoalDuo',p+'mGoalProgs',p+'mROIRows',p+'mCPOppRows',p+'mSrcLeg',p+'mTierLeg',p+'mCommList',p+'mTripGrid',p+'evtBody'].forEach(id=>setHTML(id,id.endsWith('evtBody')?'':msg));
+    [p+'mFunnelChart',p+'mSrcChart',p+'mROIChart',p+'mCPOppChart',p+'mTierChart'].forEach(destroyChart);
+    return;
+  }
+
+  /* ── KPI aggregations ── */
+  const totEvents  = qEvents.length;
+  const totMQL     = qEvents.reduce((s,e)=>s+(Number(e.mql)||0),0);
+  const totSQL     = qEvents.reduce((s,e)=>s+(Number(e.sql)||0),0);
+  const totOpps    = qEvents.reduce((s,e)=>s+(Number(e.opps)||0),0);
+  const totBudget  = qEvents.reduce((s,e)=>s+(Number(e.budget)||0),0);
+  const totActual  = qEvents.reduce((s,e)=>s+(Number(e.actual)||0),0);
+  const totVar     = totActual - totBudget;
+  const totOppValue= qEvents.reduce((s,e)=>s+(Number(e.oppValue)||0),0);
+  const totRawLeads= qEvents.reduce((s,e)=>s+(Number(e.rawLeads)||0),0);
+
+  /* Prior quarter for delta */
+  const prevQ = qNum > 1 ? Q_MONTHS[qNum-1] : null;
+  const prevEvents = prevQ ? POOL.filter(e => prevQ.includes(Number(e.monthIdx))) : [];
+  function qDelta(cur, prev, isMoney) {
+    if (!prevQ) return {txt:'First quarter', cls:'neu'};
+    const d = cur - prev;
+    const pct = prev !== 0 ? ((d/prev)*100).toFixed(1) : '—';
+    const arrow = d >= 0 ? '▲ ' : '▼ ';
+    const txt = isMoney
+      ? arrow + '$' + Math.abs(d).toLocaleString() + ' vs prior quarter'
+      : arrow + Math.abs(pct) + '% vs prior quarter';
+    return {txt, cls: d >= 0 ? 'up' : 'dn'};
+  }
+  const prevMQL    = prevEvents.reduce((s,e)=>s+(Number(e.mql)||0),0);
+  const prevSQL    = prevEvents.reduce((s,e)=>s+(Number(e.sql)||0),0);
+  const prevOpps   = prevEvents.reduce((s,e)=>s+(Number(e.opps)||0),0);
+  const prevBudget = prevEvents.reduce((s,e)=>s+(Number(e.budget)||0),0);
+  const prevActual = prevEvents.reduce((s,e)=>s+(Number(e.actual)||0),0);
+  const prevOppVal = prevEvents.reduce((s,e)=>s+(Number(e.oppValue)||0),0);
+  const prevRaw    = prevEvents.reduce((s,e)=>s+(Number(e.rawLeads)||0),0);
+
+  /* Set KPI cards */
+  function setQKPI(suffix, rawVal, dispVal, delta) {
+    const ve = $s(p+suffix); if(ve) ve.textContent = dispVal;
+    const de = $s(p+suffix.replace('kv','kd')); if(de){ de.textContent=delta.txt; de.className='kpi-dl '+delta.cls; }
+  }
+  const kv0e=$s(p+'kv0'); if(kv0e) kv0e.textContent=totEvents;
+  const kd0e=$s(p+'kd0'); if(kd0e){ const d=qDelta(totEvents,prevEvents.length,false); kd0e.textContent=d.txt; kd0e.className='kpi-dl '+d.cls; }
+  const rawE=$s(p+'kv-raw'); if(rawE) rawE.textContent=totRawLeads>0?totRawLeads.toLocaleString():'—';
+  const rawD=$s(p+'kd-raw'); if(rawD){ const d=qDelta(totRawLeads,prevRaw,false); rawD.textContent=d.txt; rawD.className='kpi-dl '+d.cls; }
+  setQKPI('kv1','',totMQL.toLocaleString(),       qDelta(totMQL,    prevMQL,   false));
+  setQKPI('kv2','',totSQL.toLocaleString(),        qDelta(totSQL,    prevSQL,   false));
+  setQKPI('kv3','',totOpps.toLocaleString(),       qDelta(totOpps,   prevOpps,  false));
+  setQKPI('kv4','','$'+totBudget.toLocaleString(), qDelta(totBudget, prevBudget,true));
+  setQKPI('kv5','','$'+totActual.toLocaleString(), qDelta(totActual, prevActual,true));
+  setQKPI('kv6','',totOppValue>0?'$'+totOppValue.toLocaleString():'—', qDelta(totOppValue,prevOppVal,true));
+  const kv7e=$s(p+'kv7'); if(kv7e){ kv7e.textContent='$'+Math.abs(totVar).toLocaleString(); setStyle(p+'kv7','color',totVar<=0?'var(--c2)':'var(--c8)'); }
+  const kd7e=$s(p+'kd7'); if(kd7e){ const vs=totVar>=0?'+':''; kd7e.textContent=vs+'$'+Math.abs(totVar).toLocaleString()+' vs budget'; kd7e.className='kpi-dl '+(totVar<=0?'up':'dn'); }
+
+  /* ── Tier Scorecard ── */
+  setHTML(p+'mTierGrid', tierScoreHTMLFromEvents(['Tier 1','Tier 2','Tier 3','Tier 4'], qEvents));
+
+  /* ── Variance (spend) per tier ── */
+  const TIERS = ['Tier 1','Tier 2','Tier 3','Tier 4'];
+  const spendMap = {}; TIERS.forEach(t=>{spendMap[t]={b:0,a:0,n:0};});
+  qEvents.forEach(e=>{ if(spendMap[e.tier]){spendMap[e.tier].b+=Number(e.budget)||0;spendMap[e.tier].a+=Number(e.actual)||0;spendMap[e.tier].n++;} });
+  const spendRows=TIERS.map(t=>({lbl:t,budget:spendMap[t].b,actual:spendMap[t].a,n:spendMap[t].n})).filter(s=>s.n>0);
+  const maxBudget=Math.max(...spendRows.map(s=>Math.max(s.budget,s.actual)),1);
+  setHTML(p+'mSpendList', spendRows.length?spendRows.map(s=>{
+    const hasActual=s.actual>0; const diff=s.actual-s.budget;
+    const diffColor=diff>0?'var(--c8)':'var(--c2)'; const diffSign=diff>=0?'+':'';
+    const bPct=Math.round(s.budget/maxBudget*100); const aPct=Math.round(s.actual/maxBudget*100);
+    return `<div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
+        <span style="font-weight:700;font-size:12px;color:var(--text)">${s.lbl}</span>
+        <span style="font-size:10px;color:var(--muted)">${s.n} event${s.n!==1?'s':''}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+        <span style="font-size:10px;color:var(--muted);width:46px;flex-shrink:0">Budget</span>
+        <div style="flex:1;height:8px;background:var(--c7);border-radius:4px;overflow:hidden"><div style="height:100%;border-radius:4px;background:rgba(0,80,93,.35);width:${bPct}%"></div></div>
+        <span style="font-size:11px;font-weight:700;color:var(--text);width:80px;text-align:right">$${Math.round(s.budget).toLocaleString()}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+        <span style="font-size:10px;color:var(--muted);width:46px;flex-shrink:0">Actual</span>
+        <div style="flex:1;height:8px;background:var(--c7);border-radius:4px;overflow:hidden"><div style="height:100%;border-radius:4px;background:${hasActual?'var(--c8)':'var(--c7)'};width:${aPct}%"></div></div>
+        <span style="font-size:11px;font-weight:700;color:${hasActual?'var(--text)':'var(--muted)'};width:80px;text-align:right">${hasActual?'$'+Math.round(s.actual).toLocaleString():'—'}</span>
+      </div>
+      ${hasActual?`<div style="text-align:right;font-size:10px;font-weight:700;color:${diffColor};margin-top:1px">${diffSign}$${Math.abs(Math.round(diff)).toLocaleString()} vs budget</div>`:`<div style="text-align:right;font-size:10px;color:var(--muted);margin-top:1px;font-style:italic">no actuals recorded</div>`}
+    </div>`;
+  }).join('') : `<div style="font-size:12px;color:var(--muted);padding:8px 0">No events for ${qShort}.</div>`);
+
+  /* ── Goals ── */
+  const goalCount={'Relationship Building':0,'Lead Generation':0};
+  qEvents.forEach(e=>{if(e.goal in goalCount) goalCount[e.goal]++;});
+  const totalGoalEvents=Object.values(goalCount).reduce((a,b)=>a+b,0);
+  setHTML(p+'mGoalDuo',[
+    {lbl:'Relationship Building',ico:'🤝',cls:'gc-rel'},
+    {lbl:'Lead Generation',ico:'🎯',cls:'gc-lead'}
+  ].map(g=>{
+    const cnt=goalCount[g.lbl]||0;
+    const pct=totalGoalEvents?Math.round(cnt/totalGoalEvents*100):0;
+    return `<div class="goal-card ${g.cls}"><div class="gc-icon">${g.ico}</div><div class="gc-lbl">${g.lbl}</div><div class="gc-val">${cnt}</div><div class="gc-sub">${pct}% of quarter</div></div>`;
+  }).join(''));
+  setHTML(p+'mGoalProgs','');
+
+  /* ── Budget Origin donut ── */
+  const srcPalette=['#00505D','#0096CE','#E76E25','#366B98','#7BC3D0','#DCDCDC'];
+  const srcCountMap={};
+  qEvents.forEach(e=>{const s=e.source||'Other'; srcCountMap[s]=(srcCountMap[s]||0)+1;});
+  const srcEntries=Object.entries(srcCountMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const srcTotal2=srcEntries.reduce((s,[,v])=>s+v,0)||1;
+  const srcLabels=srcEntries.map(([l])=>l);
+  const srcCounts=srcEntries.map(([,v])=>v);
+  const srcPcts=srcEntries.map(([,v])=>Math.round(v/srcTotal2*100));
+  const srcColors=srcPalette.slice(0,srcLabels.length);
+  setHTML(p+'mSrcLeg', srcLabels.length
+    ?srcLabels.map((l,k)=>`<div class="dleg-row"><div class="dleg-dot" style="background:${srcColors[k]}"></div><span>${l}</span><span class="dleg-pct">${srcPcts[k]}%</span></div>`).join('')
+    :'<div style="font-size:12px;color:var(--muted)">No source data.</div>');
+  destroyChart(p+'mSrcChart');
+  if(srcLabels.length){const _cv=$s(p+'mSrcChart');if(_cv) charts[p+'mSrc']=MiniCharts.create(_cv,{
+    type:'doughnut',
+    data:{labels:srcLabels,datasets:[{data:srcCounts,backgroundColor:srcColors,borderWidth:0,hoverOffset:5}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>`${ctx.label}: ${srcPcts[ctx.dataIndex]}%`}}}}
+  });}
+
+  /* ── Cost per MQL by tier ── */
+  const roiColors=['#E76E25','#0096CE','#7BC3D0','#366B98'];
+  const cpmqlMap={}; TIERS.forEach(t=>{cpmqlMap[t]={actual:0,mql:0};});
+  qEvents.forEach(e=>{if(cpmqlMap[e.tier]){cpmqlMap[e.tier].actual+=Number(e.actual)||0;cpmqlMap[e.tier].mql+=Number(e.mql)||0;}});
+  const roiAvgs=TIERS.map(t=>{const d=cpmqlMap[t];return(d.actual>0&&d.mql>0)?Math.round(d.actual/d.mql):0;});
+  const roiHas=roiAvgs.map(v=>v>0);
+  setHTML(p+'mROIRows',TIERS.map((t,k)=>
+    `<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:2px 0">
+       <span style="display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:2px;background:${roiColors[k]};display:inline-block;flex-shrink:0"></span>${t}</span>
+       <span style="font-weight:700;color:var(--text)">${roiHas[k]?'$'+roiAvgs[k].toLocaleString():'—'}</span>
+     </div>`).join(''));
+  destroyChart(p+'mROIChart');
+  {const _cv=$s(p+'mROIChart');if(_cv) charts[p+'mROI']=MiniCharts.create(_cv,{
+    type:'bar',
+    data:{labels:TIERS,datasets:[{data:roiAvgs,backgroundColor:roiColors,borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>roiHas[ctx.dataIndex]?'Cost/MQL: $'+roiAvgs[ctx.dataIndex].toLocaleString():'No data'}}},
+      scales:{x:{min:0,ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()},grid:{color:'rgba(0,0,0,.05)'}},y:{reverse:true,ticks:{font:FONT,color:TC},grid:{display:false}}}}
+  });}
+
+  /* ── Cost per Opp by tier ── */
+  const cpoppMap={}; TIERS.forEach(t=>{cpoppMap[t]={actual:0,opps:0};});
+  qEvents.forEach(e=>{if(cpoppMap[e.tier]){cpoppMap[e.tier].actual+=Number(e.actual)||0;cpoppMap[e.tier].opps+=Number(e.opps)||0;}});
+  const cpoppAvgs=TIERS.map(t=>{const d=cpoppMap[t];return(d.actual>0&&d.opps>0)?Math.round(d.actual/d.opps):0;});
+  const cpoppHas=cpoppAvgs.map(v=>v>0);
+  setHTML(p+'mCPOppRows',TIERS.map((t,k)=>
+    `<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:2px 0">
+       <span style="display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:2px;background:${roiColors[k]};display:inline-block;flex-shrink:0"></span>${t}</span>
+       <span style="font-weight:700;color:var(--text)">${cpoppHas[k]?'$'+cpoppAvgs[k].toLocaleString():'—'}</span>
+     </div>`).join(''));
+  destroyChart(p+'mCPOppChart');
+  {const _cv=$s(p+'mCPOppChart');if(_cv) charts[p+'mCPOpp']=MiniCharts.create(_cv,{
+    type:'bar',
+    data:{labels:TIERS,datasets:[{data:cpoppAvgs,backgroundColor:roiColors,borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>cpoppHas[ctx.dataIndex]?'Cost/Opp: $'+cpoppAvgs[ctx.dataIndex].toLocaleString():'No data'}}},
+      scales:{x:{min:0,ticks:{font:FONT,color:TC,callback:v=>'$'+Number(v).toLocaleString()},grid:{color:'rgba(0,0,0,.05)'}},y:{reverse:true,ticks:{font:FONT,color:TC},grid:{display:false}}}}
+  });}
+
+  /* ── Tier distribution donut ── */
+  const tierCounts=TIERS.map(t=>qEvents.filter(e=>e.tier===t).length);
+  setHTML(p+'mTierLeg',TIERS.map((t,k)=>
+    `<div class="dleg-row"><div class="dleg-dot" style="background:${TIER_COLORS[k]}"></div><span>${t}</span><span class="dleg-pct">${tierCounts[k]} event${tierCounts[k]!==1?'s':''}</span></div>`).join(''));
+  destroyChart(p+'mTierChart');
+  {const _cv=$s(p+'mTierChart');if(_cv) charts[p+'mTier']=MiniCharts.create(_cv,{
+    type:'doughnut',
+    data:{labels:TIERS,datasets:[{data:tierCounts,backgroundColor:TIER_COLORS,borderWidth:0,hoverOffset:5}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
+      plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed} event${ctx.parsed!==1?'s':''}`}}}}
+  });}
+
+  /* ── Funnel bar chart ── */
+  destroyChart(p+'mFunnelChart');
+  {const _cv=$s(p+'mFunnelChart');if(_cv) charts[p+'mFunnel']=MiniCharts.create(_cv,{
+    type:'bar',
+    data:{labels:['MQLs','SQLs','Opps'],datasets:[{data:[totMQL,totSQL,totOpps],backgroundColor:['#0096CE','#366B98','#E76E25'],borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{titleFont:FONT,bodyFont:FONT,callbacks:{label:ctx=>ctx.label+': '+ctx.parsed.y.toLocaleString()}}},
+      scales:{x:{ticks:{font:FONT,color:TC,autoSkip:false},grid:{color:'rgba(0,0,0,.04)'}},y:{ticks:{font:FONT,color:TC,precision:0},grid:{color:'rgba(0,0,0,.05)'}}}}
+  });}
+
+  /* ── Communication log ── */
+  const mComms=qEvents.filter(e=>e.comm&&e.commDate&&String(e.commDate).trim()&&e.commDate!=='—');
+  setHTML(p+'mCommList', mComms.length
+    ?mComms.map(e=>{
+        const isLog=(e.comm||'').toLowerCase().includes('logistics');
+        let daysPrior=null;
+        try{const cd=new Date(e.commDate);const sd=new Date(e.startDate);if(!isNaN(cd)&&!isNaN(sd)&&sd>cd)daysPrior=Math.round((sd-cd)/86400000);}catch(err){}
+        const daysBadge=daysPrior!==null?`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:rgba(0,150,206,.1);color:var(--c5);margin-left:6px">⏱ ${daysPrior}d prior</span>`:'';
+        return`<div class="comm-row">
+          <div class="comm-ico" style="background:${isLog?'rgba(54,107,152,.1)':'rgba(0,80,93,.1)'}">${isLog?'📋':'📊'}</div>
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><span class="badge ${isLog?'c-log':'c-pres'}">${e.comm}</span>${daysBadge}</div>
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-top:3px">${e.name||''}</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px">${e.commDate}${e.startDate?' → event starts '+e.startDate:''}</div>
+          </div></div>`;
+      }).join('')
+    :`<div style="padding:16px;text-align:center;font-size:12px;color:var(--muted)">No communications logged for ${qShort}.</div>`);
+
+  /* ── Trip reports ── */
+  const mTrips=qEvents.filter(e=>e.trip).map(e=>({name:e.name,body:e.trip,sentiment:e.sentiment||'Neutral'}));
+  const tripPos=mTrips.filter(t=>t.sentiment==='Positive').length;
+  const tripNeu=mTrips.filter(t=>t.sentiment==='Neutral').length;
+  const tripNeg=mTrips.filter(t=>t.sentiment==='Negative').length;
+  if(!mTrips.length){
+    setHTML(p+'mTripGrid',`<div style="padding:16px;text-align:center;font-size:12px;color:var(--muted)">No trip reports for ${qShort}.</div>`);
+  } else {
+    const SUMLEN=120;
+    const tripCards=mTrips.map((t,idx)=>{
+      const bc=t.sentiment==='Positive'?'var(--c5)':t.sentiment==='Negative'?'var(--c8)':'var(--c4)';
+      const sc=t.sentiment==='Positive'?'tr-pos':t.sentiment==='Negative'?'tr-neg':'tr-neu';
+      const needsExpand=t.body.length>SUMLEN;
+      let summary=t.body;
+      if(needsExpand){const cut=t.body.lastIndexOf(' ',SUMLEN);summary=t.body.slice(0,cut>60?cut:SUMLEN)+'…';}
+      const uid=`q${qNum}trip-${idx}`;
+      return `<div class="trip-card" style="border-left-color:${bc};margin-bottom:8px">
+        <div class="trip-name">${t.name}</div>
+        <div class="trip-body trip-sum-${uid}">${summary}</div>
+        ${needsExpand?`<div class="trip-body trip-full-${uid}" style="display:none">${t.body}</div>`:''}
+        <div class="trip-foot" style="margin-top:6px">
+          <span class="badge ${sc}">${t.sentiment}</span>
+          ${needsExpand?`<button class="trip-toggle" data-uid="${uid}" style="background:none;border:none;cursor:pointer;font-size:10px;font-weight:700;color:var(--c5);padding:2px 0;font-family:'Aptos','Calibri',sans-serif;letter-spacing:.3px">Show full report ▾</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+    setHTML(p+'mTripGrid',`
+      <div style="display:flex;align-items:center;gap:12px;padding:8px 0 14px;flex-wrap:wrap">
+        ${tripPos>0?`<span style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:700;color:var(--c2)"><span style="width:10px;height:10px;border-radius:50%;background:var(--c2);display:inline-block"></span>${tripPos} Positive</span>`:''}
+        ${tripNeu>0?`<span style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:700;color:var(--c4)"><span style="width:10px;height:10px;border-radius:50%;background:var(--c4);display:inline-block"></span>${tripNeu} Neutral</span>`:''}
+        ${tripNeg>0?`<span style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:700;color:var(--c8)"><span style="width:10px;height:10px;border-radius:50%;background:var(--c8);display:inline-block"></span>${tripNeg} Negative</span>`:''}
+      </div>${tripCards}`);
+    setTimeout(()=>{
+      document.querySelectorAll(`#pageQ${qNum} .trip-toggle`).forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const uid2=btn.dataset.uid;
+          const sumEl=document.querySelector(`.trip-sum-${uid2}`);
+          const fullEl=document.querySelector(`.trip-full-${uid2}`);
+          if(!sumEl||!fullEl) return;
+          const expanded=fullEl.style.display==='block';
+          sumEl.style.display=expanded?'block':'none';
+          fullEl.style.display=expanded?'none':'block';
+          btn.textContent=expanded?'Show full report ▾':'Hide full report ▴';
+        });
+      });
+    },0);
+  }
+
+  /* ── Event table ── */
+  const srcSetQ=[...new Set(qEvents.map(e=>e.source).filter(Boolean))].sort();
+  const fSrcEl=$s(p+'fSource');
+  if(fSrcEl){
+    const prev=fSrcEl.value;
+    fSrcEl.innerHTML='<option value="">All Sources</option>'+srcSetQ.map(s=>`<option value="${s}"${s===prev?' selected':''}>${s}</option>`).join('');
+  }
+  renderQEvtTable(qNum, qEvents);
+}
+
+function renderQEvtTable(qNum, allQEvents) {
+  const p='q'+qNum+'-';
+  const fT=($s(p+'fTier')||{}).value||'';
+  const fG=($s(p+'fGoal')||{}).value||'';
+  const fSrc=($s(p+'fSource')||{}).value||'';
+  const rows=(allQEvents||POOL.filter(e=>Q_MONTHS[qNum].includes(Number(e.monthIdx)))).filter(e=>
+    (!fT||e.tier===fT)&&(!fG||e.goal===fG)&&(!fSrc||e.source===fSrc));
+  const TBADGE={'Tier 1':'tier1','Tier 2':'tier2','Tier 3':'tier3','Tier 4':'tier4'};
+  const fmtMoney=v=>'$'+Math.round(Number(v)||0).toLocaleString();
+  const sentimentBadge=e=>{const s=(e.sentiment||'').toLowerCase();if(s==='positive')return'<span class="badge tr-pos">Positive</span>';if(s==='negative')return'<span class="badge" style="background:rgba(231,110,37,.1);color:#c44">Negative</span>';return'<span class="badge tr-neu">Neutral</span>';};
+  const qShort=Q_SHORT[qNum];
+  setHTML(p+'evtBody', rows.map(e=>{
+    const gc=e.goal==='Relationship Building'?'g-rel':'g-lead';
+    const vc=(e.variance||0)>=0?'cr':'cg'; const vs=(e.variance||0)>=0?'+':'';
+    const abbr=e.abbr?`<span class="src">${e.abbr}</span>`:'—';
+    return `<tr>
+      <td>${abbr}</td>
+      <td class="wrap" style="font-weight:600;min-width:140px">${e.name||'—'}</td>
+      <td style="color:var(--muted);white-space:nowrap">${e.startDate||'—'}</td>
+      <td style="color:var(--muted);white-space:nowrap">${e.endDate||'—'}</td>
+      <td><span class="badge ${TBADGE[e.tier]||'tier1'}">${e.tier||'—'}</span></td>
+      <td><span class="badge ${gc}">${e.goal||'—'}</span></td>
+      <td><span class="src">${e.source||'—'}</span></td>
+      <td class="num">${fmtMoney(e.budget)}</td>
+      <td class="num">${fmtMoney(e.actual)}</td>
+      <td class="num ${vc}">${e.actual>0?vs+fmtMoney(Math.abs(e.variance||0)):'—'}</td>
+      <td class="num">${e.rawLeads||0}</td>
+      <td class="num cb">${e.mql||0}</td>
+      <td class="num">${e.sql||0}</td>
+      <td class="num cg">${e.opps||0}</td>
+      <td class="num cg">${(Number(e.oppValue)||0)>0?'$'+(Number(e.oppValue)||0).toLocaleString():'—'}</td>
+      <td class="num co">${(()=>{const a=Number(e.actual)||0,m=Number(e.mql)||0;return(a>0&&m>0)?'$'+Math.round(a/m).toLocaleString():'—';})()}</td>
+      <td class="num co">${(()=>{const a=Number(e.actual)||0,o=Number(e.opps)||0;return(a>0&&o>0)?'$'+Math.round(a/o).toLocaleString():'—';})()}</td>
+      <td class="wrap" style="min-width:200px;max-width:340px;white-space:normal;font-size:11px;line-height:1.5;color:var(--muted)">${e.trip?`<div style="margin-bottom:4px">${sentimentBadge(e)}</div>${e.trip}`:'—'}</td>
+      <td>${e.comm?`<span class="badge c-pres">${e.comm}</span>`:'—'}</td>
+      <td style="color:var(--muted);white-space:nowrap">${e.commDate||'—'}</td>
+      <td class="num" style="color:var(--c5)">${(()=>{try{const cd=new Date(e.commDate),sd=new Date(e.startDate);if(!isNaN(cd)&&!isNaN(sd)&&sd>cd)return Math.round((sd-cd)/86400000)+'d';}catch(err){}return '—';})()}</td>
+    </tr>`;
+  }).join('')||`<tr><td colspan="21" style="text-align:center;padding:28px;color:var(--muted)">${HAS_SPREADSHEET?'No events found':'Upload the source spreadsheet to view event details'} for ${qShort}.</td></tr>`);
+}
+
 /* ══ NAVIGATION ══ */
 function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
 function showYTD(){
   document.getElementById('pageYTD').classList.add('active');
   document.getElementById('pageMonthly').classList.remove('active');
+  [1,2,3,4].forEach(q=>document.getElementById('pageQ'+q).classList.remove('active'));
   document.getElementById('tabYTD').classList.add('active');
   document.getElementById('tabMonthly').classList.remove('active');
+  [1,2,3,4].forEach(q=>document.getElementById('tabQ'+q).classList.remove('active'));
   document.querySelectorAll('.m-btn').forEach(b=>b.classList.remove('active'));
 }
 function showMonthly(i){
@@ -2304,13 +3062,27 @@ function showMonthly(i){
   curMonth = mi;
   document.getElementById('pageMonthly').classList.add('active');
   document.getElementById('pageYTD').classList.remove('active');
+  [1,2,3,4].forEach(q=>document.getElementById('pageQ'+q).classList.remove('active'));
   document.getElementById('tabMonthly').classList.add('active');
   document.getElementById('tabYTD').classList.remove('active');
+  [1,2,3,4].forEach(q=>document.getElementById('tabQ'+q).classList.remove('active'));
   document.querySelectorAll('.m-btn').forEach(b => b.classList.remove('active'));
   const activeBtn = document.querySelector(`[data-m="${mi}"]`);
   if (activeBtn) activeBtn.classList.add('active');
   renderMonthly(mi);
   setHTML('tabMonthly', `<span class="tab-icon">📅</span> ${MO[mi]} Detail`);
+}
+function showQuarterly(qNum) {
+  [1,2,3,4].forEach(q=>{
+    document.getElementById('pageQ'+q).classList.toggle('active', q===qNum);
+    document.getElementById('tabQ'+q).classList.toggle('active', q===qNum);
+  });
+  document.getElementById('pageYTD').classList.remove('active');
+  document.getElementById('pageMonthly').classList.remove('active');
+  document.getElementById('tabYTD').classList.remove('active');
+  document.getElementById('tabMonthly').classList.remove('active');
+  document.querySelectorAll('.m-btn').forEach(b=>b.classList.remove('active'));
+  renderQuarterly(qNum);
 }
 
 /* ══ LAST UPDATED ══ */
@@ -2811,9 +3583,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el) el.addEventListener('change', renderGridRows);
   });
 
-  /* ── YTD / Monthly nav tabs ── */
+  /* ── YTD / Quarterly / Monthly nav tabs ── */
   const tabYTD = document.getElementById('tabYTD');
   if (tabYTD) tabYTD.addEventListener('click', showYTD);
+  [1,2,3,4].forEach(q => {
+    const btn = document.getElementById('tabQ'+q);
+    if (btn) btn.addEventListener('click', () => showQuarterly(q));
+  });
   const tabMonthly = document.getElementById('tabMonthly');
   if (tabMonthly) tabMonthly.addEventListener('click', () => showMonthly(curMonth));
 
@@ -2827,6 +3603,13 @@ document.addEventListener('DOMContentLoaded', () => {
   ['fTier','fGoal','fSource'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', () => renderEvtTable());
+  });
+  /* ── Quarterly filter dropdowns ── */
+  [1,2,3,4].forEach(q => {
+    ['fTier','fGoal','fSource'].forEach(id => {
+      const el = document.getElementById('q'+q+'-'+id);
+      if (el) el.addEventListener('change', () => renderQEvtTable(q));
+    });
   });
 
   /* ── YTD summary table rows (delegated) ── */
