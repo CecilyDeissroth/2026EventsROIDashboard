@@ -9,8 +9,8 @@
 //   3. That will create the bin and return the bin ID
 //   4. Paste the bin ID into JSONBIN_BIN below and redeploy
 
-const JSONBIN_KEY  = '$2a$10$GEYHpXiOUodCTR11A0i6SOVCVWKDAZ4ONRvFs5BG9vuSL9UzPlDSa';
-const JSONBIN_BIN  = '6a4d1db5f5f4af5e296cfa4d';   // paste bin ID here after running /api/data/init
+const JSONBIN_KEY  = '$2a$10$JFTbEzPVxokF53345D4hnujmBcFo1d0RPth5qU/TvCdI1r4kvRcP6';
+const JSONBIN_BIN  = '6a722c8bf5f4af5e29eb1311';   // paste bin ID here after running /api/data/init
 const API_SECRET   = '2026events';
 const JSONBIN_BASE = 'https://api.jsonbin.io/v3';
 
